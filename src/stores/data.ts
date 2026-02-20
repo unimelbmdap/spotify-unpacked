@@ -63,8 +63,50 @@ function aggregateListeningByMonth(rows: ExtendedRow[], year: number): {
     totals.set(monthKey, (totals.get(monthKey) ?? 0) + minutes)
   }
 
-  const labels = Array.from(totals.keys()).sort()
-  const data = labels.map((label) => Number(totals.get(label)?.toFixed(2) ?? 0))
+  const labels: string[] = []
+  const start = new Date(Date.UTC(year, 0, 1))
+  const end = new Date(Date.UTC(year + 1, 0, 1))
+
+  for (let cursor = new Date(start); cursor < end; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+    labels.push(cursor.toISOString().slice(0, 10))
+  }
+
+  const data = labels.map((label) => Number((totals.get(label)?? 0).toFixed(2)))
+
+
+  return { labels, data }
+}
+
+
+function aggregateListeningByDay(rows: ExtendedRow[], year: number): {
+  labels: string[]
+  data: number[]
+} {
+  const totals = new Map<string, number>()
+
+  for (const row of rows) {
+    const ts = getTimestamp(row)
+    if (!ts) continue
+
+    const date = new Date(ts)
+    if (Number.isNaN(date.getTime())) continue
+    if (date.getUTCFullYear() !== year) continue
+
+    const dayKey = date.toISOString().slice(0,10)
+    const minutes = getMs(row) / 60000
+    totals.set(dayKey, (totals.get(dayKey) ?? 0) + minutes)
+  }
+
+
+  const labels: string[] = []
+  const start = new Date(Date.UTC(year, 0, 1))
+  const end = new Date(Date.UTC(year + 1, 0, 1))
+
+  for (let cursor = new Date(start); cursor < end; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+    labels.push(cursor.toISOString().slice(0, 10))
+  }
+
+  const data = labels.map((label) => Number((totals.get(label)?? 0).toFixed(2)))
   return { labels, data }
 }
 
@@ -78,7 +120,14 @@ const dummyChartData: Record<string, ChartData> = {
   line: {
     labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
     datasets: [
-      { label: 'Listeners', borderColor: '#6366f1', data: [65, 59, 80, 81, 56, 72], fill: false },
+      {
+        label: 'Listeners',
+        borderColor: '#6366f1',
+        backgroundColor: 'rgba(99,102,241,0.2)',
+        data: [65, 59, 80, 81, 56, 72],
+        fill: true,
+        tension: 0.2,
+      },
     ],
   },
   pie: {
@@ -177,7 +226,9 @@ export const useDataStore = defineStore('data', () => {
   }
 
   function updateLineChartFromExtendedRows(year = 2025) {
-    const { labels, data } = aggregateListeningByMonth(extendedRows.value, year)
+    const { labels, data } = aggregateListeningByDay(extendedRows.value, year)
+    const pointRadii = data.map((value) => (value !== 0 ? 2.5 : 0))
+    const pointHoverRadii = data.map((value) => (value !== 0 ? 4 : 0))
 
     chartData.value.line = {
       labels,
@@ -187,8 +238,11 @@ export const useDataStore = defineStore('data', () => {
           borderColor: '#1DB954',
           backgroundColor: 'rgba(29,185,84,0.2)',
           data,
-          fill: false,
+          fill: true,
           tension: 0.2,
+          pointRadius: pointRadii,
+          pointHoverRadius: pointHoverRadii,
+          pointHitRadius: 8,
         },
       ],
     }

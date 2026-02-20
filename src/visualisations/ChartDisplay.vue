@@ -4,6 +4,7 @@ import { useDark } from '@vueuse/core'
 import { useVisualisationStore } from '@/stores/visualisation'
 import { useDataStore } from '@/stores/data'
 import { Bar, Bubble, Doughnut, Line, Pie, PolarArea, Radar, Scatter } from 'vue-chartjs'
+import type { ChartData } from 'chart.js'
 
 const visStore = useVisualisationStore()
 const dataStore = useDataStore()
@@ -11,8 +12,9 @@ const isDark = useDark({ storageKey: 'spotify-unpacked-colour-mode' })
 
 // Each vue-chartjs component expects its specific ChartData variant (e.g. ChartData<"bar">),
 // but data is selected dynamically at runtime. The v-if guards in the template ensure correctness.
-const currentData = computed(() => dataStore.getChartData(visStore.selectedChart) as any)
-
+const currentData = computed<ChartData | undefined>(() =>
+  dataStore.getChartData(visStore.selectedChart),
+)
 const baseOptions = computed(() => {
   const textColour = isDark.value ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.8)'
   const gridColour = isDark.value ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
@@ -26,7 +28,28 @@ const cartesianOptions = computed(() => {
     maintainAspectRatio: false,
     scales: {
       x: {
-        ticks: { color: textColour, autoSkip: false, maxRotation: 0, minRotation: 0 },
+        ticks: { 
+          color: textColour, autoSkip: false, maxRotation: 0, minRotation: 0,
+         callback:  (_value: number | string, index: number) => {
+            const labels = currentData.value?.labels as string[] | undefined
+            const current = labels?.[index]
+            const prev = index > 0 ? labels?.[index - 1] : undefined
+
+            const raw = labels?.[index]
+            const label = typeof raw === 'string' ? raw : ''
+            if (!/^\d{4}-\d{2}(-\d{2})?$/.test(label)) return label || ''
+
+            if (!current) return ''
+
+            const currentMonth = current.slice(0, 7) // YYYY-MM
+            const prevMonth = prev?.slice(0, 7)
+
+            if (index === 0 || currentMonth !== prevMonth) {
+              const [year, month] = currentMonth.split('-')
+              return new Date(`${year}-${month}-01T00:00:00Z`).toLocaleDateString('en-GB', { month: 'short' })
+            }
+
+            return ''}},
         grid: { color: gridColour },
       },
       y: { ticks: { color: textColour }, grid: { color: gridColour } },
@@ -66,49 +89,49 @@ const simpleOptions = computed(() => {
     <Bar
       v-if="visStore.selectedChart === 'bar'"
       :key="`bar-${isDark}`"
-      :data="currentData"
+      :data="currentData as never"
       :options="cartesianOptions"
     />
     <Line
       v-else-if="visStore.selectedChart === 'line'"
       :key="`line-${isDark}`"
-      :data="currentData"
+      :data="currentData as never"
       :options="cartesianOptions"
     />
     <Pie
       v-else-if="visStore.selectedChart === 'pie'"
       :key="`pie-${isDark}`"
-      :data="currentData"
+      :data="currentData as never"
       :options="simpleOptions"
     />
     <Doughnut
       v-else-if="visStore.selectedChart === 'doughnut'"
       :key="`doughnut-${isDark}`"
-      :data="currentData"
+      :data="currentData as never"
       :options="simpleOptions"
     />
     <Radar
       v-else-if="visStore.selectedChart === 'radar'"
       :key="`radar-${isDark}`"
-      :data="currentData"
+      :data="currentData as never"
       :options="radialOptions"
     />
     <PolarArea
       v-else-if="visStore.selectedChart === 'polarArea'"
       :key="`polar-${isDark}`"
-      :data="currentData"
+      :data="currentData as never"
       :options="radialOptions"
     />
     <Bubble
       v-else-if="visStore.selectedChart === 'bubble'"
       :key="`bubble-${isDark}`"
-      :data="currentData"
+      :data="currentData as never"
       :options="cartesianOptions"
     />
     <Scatter
       v-else-if="visStore.selectedChart === 'scatter'"
       :key="`scatter-${isDark}`"
-      :data="currentData"
+      :data="currentData as never"
       :options="cartesianOptions"
     />
   </template>
