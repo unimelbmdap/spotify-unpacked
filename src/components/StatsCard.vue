@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useDataStore } from '@/stores/data'
 
+const essentialFilesTarget = 3
 const dataStore = useDataStore()
 
 const fileCounts = computed(() => {
@@ -15,7 +16,9 @@ const fileCounts = computed(() => {
 
   dataStore.files.forEach((file) => {
     const nameLower = file.name.toLowerCase()
-    if (nameLower.includes('streaming')) {
+    if (
+          nameLower.includes('streaming_history_audio') &&
+          nameLower.includes('2025')) {
       counts.streaming++
     } else if (nameLower.includes('library')) {
       counts.library++
@@ -28,6 +31,15 @@ const fileCounts = computed(() => {
 
   return counts
 })
+
+const essentialFilesLoaded = computed(
+  () => fileCounts.value.streaming + fileCounts.value.library + fileCounts.value.playlist
+)
+
+const completionPercent = computed(() => {
+  if (essentialFilesTarget <= 0) return 0
+  return Math.min(100, Math.round((essentialFilesLoaded.value / essentialFilesTarget) * 100))
+})
 </script>
 
 <template>
@@ -37,6 +49,12 @@ const fileCounts = computed(() => {
       <CardDescription>Summary of your loaded dataset</CardDescription>
     </CardHeader>
     <CardContent>
+      <div class="mb-4">
+      <div class="text-xs text-muted-foreground">{{ essentialFilesLoaded }}/{{ essentialFilesTarget }} essential files loaded {{ completionPercent }}%</div>
+        <div class="h-4 w-full rounded-full bg-secondary overflow-hidden">
+    <div class="h-full bg-primary transition-all duration-300" :style="{ width: `${completionPercent}%` }" />
+  </div>
+    </div>
       <template v-if="dataStore.hasData">
         <ul class="text-sm space-y-1">
           <li>
@@ -49,7 +67,7 @@ const fileCounts = computed(() => {
             {{ fileCounts.playlist }} {{ fileCounts.playlist === 1 ? 'playlist file' : 'playlist files' }} loaded
           </li>
           <li v-if="fileCounts.unrecognised > 0">
-            {{ fileCounts.unrecognised }} {{ fileCounts.unrecognised === 1 ? 'unrecognised file' : 'unrecognised files' }} loaded
+            {{ fileCounts.unrecognised }} {{ fileCounts.unrecognised === 1 ? 'nonessential file' : 'nonessential files' }} ignored
           </li>
         </ul>
       </template>

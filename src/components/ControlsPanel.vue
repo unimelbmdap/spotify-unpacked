@@ -15,7 +15,7 @@ const store = useVisualisationStore()
 
 const chartTypes = [
   { value: 'bar', label: 'Bar' },
-  { value: 'line', label: 'Line' },
+  { value: 'line', label: 'Listening history' },
   { value: 'pie', label: 'Pie' },
   { value: 'doughnut', label: 'Doughnut' },
   { value: 'radar', label: 'Radar' },
@@ -30,8 +30,8 @@ const chartTypes = [
     <div class="flex flex-col gap-4 p-4">
       <Card>
         <CardHeader>
-          <CardTitle>Controls</CardTitle>
-          <CardDescription>Configure your visualisation</CardDescription>
+          <CardTitle>Show me more</CardTitle>
+          <CardDescription>Choose your visualisation</CardDescription>
         </CardHeader>
         <CardContent>
           <div class="flex flex-col gap-2">

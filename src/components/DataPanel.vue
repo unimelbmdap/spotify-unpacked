@@ -30,7 +30,7 @@ function onClear() {
           <div class="flex items-center justify-between">
             <div>
               <CardTitle>Data</CardTitle>
-              <CardDescription>Upload your Spotify data export</CardDescription>
+              <CardDescription>Drop your Spotify data export folders here</CardDescription>
             </div>
             <Popover>
               <PopoverTrigger as-child>

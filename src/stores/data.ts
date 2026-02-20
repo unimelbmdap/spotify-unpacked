@@ -7,6 +7,67 @@ export interface LoadedFile {
   size: number
 }
 
+type ExtendedRow = {
+  ts?: string
+  endTime?: string
+  ms_played?: number
+  msPlayed?: number
+}
+
+function getTimestamp(row: ExtendedRow): string | null {
+  return row.ts ?? row.endTime ?? null
+}
+
+function getMs(row: ExtendedRow): number {
+  return row.ms_played ?? row.msPlayed ?? 0
+}
+
+function isExtendedAudioFile(file: File): boolean {
+  return file.name.toLowerCase().includes('streaming_history_audio')
+}
+
+async function parseExtendedRows(rawFiles: File[]): Promise<ExtendedRow[]> {
+  const targetFiles = rawFiles.filter(isExtendedAudioFile)
+  const parsedBatches = await Promise.all(
+    targetFiles.map(async (file) => {
+      try {
+        const content = await file.text()
+        const parsed = JSON.parse(content) as unknown
+        if (!Array.isArray(parsed)) return []
+        return parsed.filter((item): item is ExtendedRow => typeof item === 'object' && item !== null)
+      } catch {
+        return []
+      }
+    }),
+  )
+
+  return parsedBatches.flat()
+}
+
+function aggregateListeningByMonth(rows: ExtendedRow[], year: number): {
+  labels: string[]
+  data: number[]
+} {
+  const totals = new Map<string, number>()
+
+  for (const row of rows) {
+    const ts = getTimestamp(row)
+    if (!ts) continue
+
+    const date = new Date(ts)
+    if (Number.isNaN(date.getTime())) continue
+    if (date.getUTCFullYear() !== year) continue
+
+    const monthKey = date.toISOString().slice(0, 7)
+    const minutes = getMs(row) / 60000
+    totals.set(monthKey, (totals.get(monthKey) ?? 0) + minutes)
+  }
+
+  const labels = Array.from(totals.keys()).sort()
+  const data = labels.map((label) => Number(totals.get(label)?.toFixed(2) ?? 0))
+  return { labels, data }
+}
+
 const dummyChartData: Record<string, ChartData> = {
   bar: {
     labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
@@ -106,6 +167,7 @@ export const useDataStore = defineStore('data', () => {
   const files = ref<LoadedFile[]>([])
   const isLoading = ref(false)
   const chartData = ref<Record<string, ChartData>>({ ...dummyChartData })
+  const extendedRows = ref<ExtendedRow[]>([])
 
   const fileCount = computed(() => files.value.length)
   const hasData = computed(() => files.value.length > 0)
@@ -114,38 +176,62 @@ export const useDataStore = defineStore('data', () => {
     return chartData.value[chartType]
   }
 
+  function updateLineChartFromExtendedRows(year = 2025) {
+    const { labels, data } = aggregateListeningByMonth(extendedRows.value, year)
+
+    chartData.value.line = {
+      labels,
+      datasets: [
+        {
+          label: `Listening minutes (${year})`,
+          borderColor: '#1DB954',
+          backgroundColor: 'rgba(29,185,84,0.2)',
+          data,
+          fill: false,
+          tension: 0.2,
+        },
+      ],
+    }
+  }
+
+
+
   async function loadFiles(rawFiles: File[]) {
     isLoading.value = true
+    try {
+      files.value = rawFiles.map((f) => ({
+        name: f.name,
+        size: f.size,
+      }))
 
-    files.value = rawFiles.map((f) => ({
-      name: f.name,
-      size: f.size,
-    }))
-
-    // TODO: parse files and populate chartData with real data
-    // chartData.value = buildChartDataFromParsed(...)
-
-    isLoading.value = false
+      extendedRows.value = await parseExtendedRows(rawFiles)
+      updateLineChartFromExtendedRows()
+    } finally {
+      isLoading.value = false
+    }
   }
 
   async function addFiles(rawFiles: File[]) {
     isLoading.value = true
+    try {
+      const newFiles = rawFiles.map((f) => ({
+        name: f.name,
+        size: f.size,
+      }))
 
-    const newFiles = rawFiles.map((f) => ({
-      name: f.name,
-      size: f.size,
-    }))
+      files.value.push(...newFiles)
 
-    files.value.push(...newFiles)
-
-    // TODO: parse files and populate chartData with real data
-    // chartData.value = buildChartDataFromParsed(...)
-
-    isLoading.value = false
+      const parsedRows = await parseExtendedRows(rawFiles)
+      extendedRows.value.push(...parsedRows)
+      updateLineChartFromExtendedRows()
+    } finally {
+      isLoading.value = false
+    }
   }
 
   function clear() {
     files.value = []
+    extendedRows.value = []
     chartData.value = { ...dummyChartData }
   }
 

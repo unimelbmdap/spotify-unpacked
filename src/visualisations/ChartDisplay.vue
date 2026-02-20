@@ -25,7 +25,10 @@ const cartesianOptions = computed(() => {
     responsive: true,
     maintainAspectRatio: false,
     scales: {
-      x: { ticks: { color: textColour }, grid: { color: gridColour } },
+      x: {
+        ticks: { color: textColour, autoSkip: false, maxRotation: 0, minRotation: 0 },
+        grid: { color: gridColour },
+      },
       y: { ticks: { color: textColour }, grid: { color: gridColour } },
     },
     plugins: { legend: { labels: { color: textColour } } },
