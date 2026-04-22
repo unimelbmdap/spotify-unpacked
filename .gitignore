@@ -1,6 +1,12 @@
 # Data files
 explorations/data/
 
+# Kaggle
+kaggle/
+
+# Emotion_map
+public/emotion_map.json
+
 # Logs
 logs
 *.log
