@@ -18,51 +18,19 @@ const emojiMap: Record<string, string> = {
   'happy': '😄', 'energetic': '⚡', 'sad': '😔', 'calm': '😌'
 }
 
-// Chart.js Plugin: Scaling emojis in Polar Area slices
-const radarEmojiPlugin = {
-  id: 'radarEmoji',
-  afterDraw: (chart: any) => {
-    const { ctx } = chart
-    const meta = chart.getDatasetMeta(0)
-    if (!meta || !meta.data) return
-
-    ctx.save()
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-
-    meta.data.forEach((segment: any, i: number) => {
-      const dataValue = chart.data.datasets[0].data[i]
-      const label = chart.data.labels[i]
-      const emoji = emojiMap[label] || ''
-      if (!emoji || dataValue < 5) return 
-
-      const { x, y, startAngle, endAngle, outerRadius } = segment
-      const midAngle = (startAngle + endAngle) / 2
-      const distance = outerRadius * 0.6
-      const emojiX = x + Math.cos(midAngle) * distance
-      const emojiY = y + Math.sin(midAngle) * distance
-
-      const fontSize = Math.max(12, Math.min(32, (dataValue / 100) * 80))
-      ctx.font = `${fontSize}px Arial`
-      ctx.fillText(emoji, emojiX, emojiY)
-    })
-    ctx.restore()
-  }
-}
-
-// Chart.js Plugin: Emojis for weekly peaks on Line charts
-const weeklyPeakPlugin = {
-  id: 'weeklyPeak',
+// Chart.js Plugin: Emojis for weekly peaks and emotion shifts on Line charts
+const peakAndShiftPlugin = {
+  id: 'peakAndShift',
   afterDraw: (chart: any) => {
     const { ctx } = chart
     const datasets = chart.data.datasets
     const labels = chart.data.labels
-    if (!labels || labels.length < 7) return
+    if (!labels || labels.length < 2) return
 
     ctx.save()
-    ctx.font = '16px Arial'
     ctx.textAlign = 'center'
 
+    // 1. Weekly Peaks
     for (let i = 0; i < labels.length; i += 7) {
       const end = Math.min(i + 7, labels.length)
       let maxVal = -1
@@ -86,13 +54,106 @@ const weeklyPeakPlugin = {
            const point = meta.data[maxIdx]
            const emoji = emojiMap[maxLabel] || ''
            if (emoji) {
+              ctx.font = '16px Arial'
               ctx.fillText(emoji, point.x, point.y - 12)
            }
         }
       }
     }
+
+    // 2. Emotion Shifts
+    let lastDominant = ''
+    let lastShiftIdx = -1
+    for (let i = 0; i < labels.length; i++) {
+      let maxVal = -1
+      let currentDominant = ''
+      datasets.forEach((ds: any) => {
+        if (ds.data[i] > maxVal) {
+          maxVal = ds.data[i]
+          currentDominant = ds.label
+        }
+      })
+
+      // Threshold: Only shift if lead > 10% and at least 5 indices since last shift
+      if (currentDominant && currentDominant !== lastDominant && i > 0 && maxVal > 20) {
+        const secondBest = datasets.reduce((acc: number, ds: any) => {
+          if (ds.label === currentDominant) return acc
+          return Math.max(acc, ds.data[i] || 0)
+        }, 0)
+
+        if (maxVal - secondBest > 10 && (lastShiftIdx === -1 || i - lastShiftIdx > 5)) { 
+          const dsIdx = chart.data.datasets.findIndex((ds:any) => ds.label === currentDominant)
+          const meta = chart.getDatasetMeta(dsIdx)
+          if (meta && meta.data[i]) {
+            const point = meta.data[i]
+            ctx.font = '12px Arial'
+            ctx.globalAlpha = 0.6
+            ctx.fillText('🔄', point.x, point.y - 25) 
+            ctx.globalAlpha = 1.0
+          }
+          lastDominant = currentDominant
+          lastShiftIdx = i
+        }
+      }
+    }
     ctx.restore()
   }
+}
+
+// Chart.js Plugin: Mixed Emotion Background Shading
+const emotionBackgroundPlugin = {
+  id: 'emotionBackground',
+  beforeDraw: (chart: any) => {
+    const { ctx, chartArea: { top, bottom, left, right }, scales: { x } } = chart
+    const datasets = chart.data.datasets
+    const labels = chart.data.labels
+    if (!labels || !datasets.length) return
+
+    const cMap = dataStore.baseTimeline.cMap
+
+    ctx.save()
+    const count = labels.length
+    for (let i = 0; i < count; i++) {
+      const xPos = x.getPixelForValue(i)
+      const nextXPos = i < count - 1 ? x.getPixelForValue(i + 1) : right
+      const width = nextXPos - xPos
+
+      let r = 0, g = 0, b = 0, totalWeight = 0
+      datasets.forEach((ds: any) => {
+        const val = ds.data[i] || 0
+        if (val > 0) {
+          const hex = cMap[ds.label]
+          if (hex) {
+            const rgb = hexToRgb(hex)
+            if (rgb) {
+              r += rgb.r * val
+              g += rgb.g * val
+              b += rgb.b * val
+              totalWeight += val
+            }
+          }
+        }
+      })
+
+      if (totalWeight > 0) {
+        const mixedR = Math.round(r / totalWeight)
+        const mixedG = Math.round(g / totalWeight)
+        const mixedB = Math.round(b / totalWeight)
+        ctx.fillStyle = `rgba(${mixedR}, ${mixedG}, ${mixedB}, ${isDark.value ? 0.08 : 0.12})`
+        ctx.fillRect(xPos, top, width, bottom - top)
+      }
+    }
+    ctx.restore()
+  }
+}
+
+function hexToRgb(hex: string) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+  return result ? {
+    r: parseInt(result[1]!, 16),
+    g: parseInt(result[2]!, 16),
+    b: parseInt(result[3]!, 16)
+  } : null
 }
 
 // Chart.js Plugin: Per-chart needle segment via Scale API
@@ -175,25 +236,18 @@ const academicAnnotations = computed(() => {
   const dates = dataStore.liveChartData.line500k?.labels as string[] | undefined
   if (!dates || dates.length === 0) return {}
 
-  const activeYears = new Set<number>()
-  dates.forEach(d => activeYears.add(new Date(d).getFullYear()))
+  const activeYears = Array.from(new Set(dates.map(d => new Date(d).getFullYear())))
 
   const annotations: any = {}
   let annId = 0
   activeYears.forEach(y => {
-      const s1 = `${y}-05-25`, e1 = `${y}-06-30`
-      const s2 = `${y}-10-25`, e2 = `${y}-11-30`
-      const hasFirstSem = dates.some(d => d >= s1 && d <= e1)
-      const hasSecondSem = dates.some(d => d >= s2 && d <= e2)
-
-      if (hasFirstSem) {
-        annotations[`box${annId++}`] = { type: 'box', xMin: `${y}-05-25`, xMax: `${y}-06-01`, backgroundColor: swotvacColor, borderWidth: 0, drawTime: 'beforeDatasetsDraw' }
-        annotations[`box${annId++}`] = { type: 'box', xMin: `${y}-06-01`, xMax: `${y}-06-30`, backgroundColor: examColor, borderWidth: 0, drawTime: 'beforeDatasetsDraw' }
-      }
-      if (hasSecondSem) {
-        annotations[`box${annId++}`] = { type: 'box', xMin: `${y}-10-25`, xMax: `${y}-11-01`, backgroundColor: swotvacColor, borderWidth: 0, drawTime: 'beforeDatasetsDraw' }
-        annotations[`box${annId++}`] = { type: 'box', xMin: `${y}-11-01`, xMax: `${y}-11-30`, backgroundColor: examColor, borderWidth: 0, drawTime: 'beforeDatasetsDraw' }
-      }
+      const ad = dataStore.getAcademicDates(y)
+      const labelStyle = { display: true, position: 'center' as const, font: { size: 9, weight: 'bold' as const }, color: isDark.value ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)' }
+      
+      annotations[`swot1_${y}`] = { type: 'box', xMin: ad.s1_swotvic_start, xMax: ad.s1_swotvic_end, yMin: 105, yMax: 115, backgroundColor: swotvacColor, borderWidth: 0, drawTime: 'afterDatasetsDraw', label: { ...labelStyle, content: 'SWOTVAC' } }
+      annotations[`exam1_${y}`] = { type: 'box', xMin: ad.s1_exams_start, xMax: ad.s1_exams_end, yMin: 105, yMax: 115, backgroundColor: examColor, borderWidth: 0, drawTime: 'afterDatasetsDraw', label: { ...labelStyle, content: 'EXAMS' } }
+      annotations[`swot2_${y}`] = { type: 'box', xMin: ad.s2_swotvic_start, xMax: ad.s2_swotvic_end, yMin: 105, yMax: 115, backgroundColor: swotvacColor, borderWidth: 0, drawTime: 'afterDatasetsDraw', label: { ...labelStyle, content: 'SWOTVAC' } }
+      annotations[`exam2_${y}`] = { type: 'box', xMin: ad.s2_exams_start, xMax: ad.s2_exams_end, yMin: 105, yMax: 115, backgroundColor: examColor, borderWidth: 0, drawTime: 'afterDatasetsDraw', label: { ...labelStyle, content: 'EXAMS' } }
   })
   return annotations
 })
@@ -213,23 +267,28 @@ const radialOptions500k = computed(() => {
         angleLines: { color: gridColour },
         pointLabels: { 
           display: true,
-          color: (ctx: any) => dataStore.baseTimeline.cMap[ctx.label] || textColour, 
-          font: { size: 10, weight: 'bold' as const },
-          padding: 20,
+          color: textColour, 
+          font: { size: 18, weight: 'bold' as const },
+          padding: 5,
           centerPointLabels: true, // Align labels with slice centers per Chart.js 4
           callback: (label: string, index: number) => {
              const radarData = dataStore.radarChartData.radar500k.datasets[0].data
              const val = radarData[index] ?? 0
-             return [label.toUpperCase(), Math.round(val) + '%']
+             const emoji = emojiMap[label.toLowerCase()] || ''
+             return [`${emoji} ${label.toUpperCase()}`, Math.round(val) + '%']
           }
         },
       },
     },
-    layout: { padding: 40 },
+    layout: { padding: 20 },
     plugins: { 
       legend: { display: false },
-      radarEmoji: true,
-      tooltip: { enabled: true }
+      tooltip: { 
+        enabled: true,
+        callbacks: {
+          label: (ctx: any) => ` ${ctx.label}: ${ctx.raw.toFixed(2)}%`
+        }
+      }
     }
   }
 })
@@ -249,23 +308,28 @@ const radialOptions278k = computed(() => {
         angleLines: { color: gridColour },
         pointLabels: { 
           display: true,
-          color: (ctx: any) => dataStore.baseTimeline.cMap[ctx.label] || textColour, 
-          font: { size: 10, weight: 'bold' as const },
-          padding: 20,
+          color: textColour, 
+          font: { size: 18, weight: 'bold' as const },
+          padding: 5,
           centerPointLabels: true,
           callback: (label: string, index: number) => {
              const radarData = dataStore.radarChartData.radar278k.datasets[0].data
              const val = radarData[index] ?? 0
-             return [label.toUpperCase(), Math.round(val) + '%']
+             const emoji = emojiMap[label.toLowerCase()] || ''
+             return [`${emoji} ${label.toUpperCase()}`, Math.round(val) + '%']
           }
         },
       },
     },
-    layout: { padding: 40 },
+    layout: { padding: 20 },
     plugins: { 
       legend: { display: false },
-      radarEmoji: true,
-      tooltip: { enabled: true }
+      tooltip: { 
+        enabled: true,
+        callbacks: {
+          label: (ctx: any) => ` ${ctx.label}: ${ctx.raw.toFixed(2)}%`
+        }
+      }
     }
   }
 })
@@ -313,21 +377,32 @@ const timelineOptions = computed(() => {
       x: lineXAxis.value,
       y: { 
         min: 0, 
-        max: 100, 
-        ticks: { color: textColour }, 
-        grid: { color: gridColour },
+        max: 120, 
+        ticks: { 
+          color: textColour,
+          callback: (val: any) => val <= 100 ? val : null
+        }, 
+        grid: { 
+          color: (ctx: any) => ctx.tick.value <= 100 ? gridColour : 'transparent'
+        },
         afterFit: (axis: any) => { axis.width = 40 }
       },
     },
     plugins: {
       legend: { display: false },
-      weeklyPeak: true,
+      peakAndShift: true,
+      emotionBackground: true,
       needle: true,
-      annotation: { annotations: academicAnnotations.value }
+      annotation: { annotations: academicAnnotations.value },
+      tooltip: {
+        callbacks: {
+          label: (ctx: any) => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}%`
+        }
+      }
     },
     layout: { 
-      padding: { top: 40, left: 0, right: 0 },
-      autoPadding: false
+      padding: { top: 20, left: 0, right: 0 },
+      autoPadding: true
     },
     interaction: { mode: 'index' as const, intersect: false },
     elements: { point: { radius: 0, hitRadius: 10 } }
@@ -343,22 +418,33 @@ const tugOfWarOptions = computed(() => {
       x: { ...barXAxis.value, stacked: true },
       y: { 
         min: -100, 
-        max: 100, 
+        max: 130, 
         stacked: true,
-        ticks: { color: textColour }, 
-        grid: { color: gridColour },
+        ticks: { 
+          color: textColour,
+          callback: (val: any) => (val >= -100 && val <= 100) ? val : null
+        }, 
+        grid: { 
+          color: (ctx: any) => (ctx.tick.value >= -100 && ctx.tick.value <= 100) ? gridColour : 'transparent'
+        },
         afterFit: (axis: any) => { axis.width = 40 }
       },
     },
     plugins: {
       legend: { display: false },
       needle: true,
-      annotation: { annotations: academicAnnotations.value }
+      annotation: { annotations: academicAnnotations.value },
+      tooltip: {
+        callbacks: {
+          label: (ctx: any) => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}%`
+        }
+      }
     },
     layout: { 
-      padding: { top: 40, left: 0, right: 0 },
-      autoPadding: false
-    }
+      padding: { top: 30, left: 0, right: 0 },
+      autoPadding: true
+    },
+    interaction: { mode: 'index' as const, intersect: false }
   }
 })
 
@@ -371,21 +457,33 @@ const coverageOptions = computed(() => {
       x: { ...barXAxis.value, stacked: true },
       y: { 
         min: 0, 
+        max: 120,
         stacked: true, 
-        ticks: { color: textColour }, 
-        grid: { color: gridColour },
+        ticks: { 
+          color: textColour,
+          callback: (val: any) => val <= 100 ? val : null
+        }, 
+        grid: { 
+          color: (ctx: any) => ctx.tick.value <= 100 ? gridColour : 'transparent'
+        },
         afterFit: (axis: any) => { axis.width = 40 }
       },
     },
     plugins: {
       legend: { display: false },
       needle: true,
-      annotation: { annotations: academicAnnotations.value }
+      annotation: { annotations: academicAnnotations.value },
+      tooltip: {
+        callbacks: {
+          label: (ctx: any) => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}%`
+        }
+      }
     },
     layout: { 
-      padding: { top: 40, left: 0, right: 0 },
-      autoPadding: false
-    }
+      padding: { top: 30, left: 0, right: 0 },
+      autoPadding: true
+    },
+    interaction: { mode: 'index' as const, intersect: false }
   }
 })
 
@@ -434,16 +532,16 @@ const needleLeft = computed(() => {
   <div v-if="dataStore.hasData && dataStore.liveChartData.line500k?.labels?.length" class="flex flex-col h-full overflow-y-auto bg-background p-6 gap-8">
      
      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 shrink-0">
-        <div class="flex flex-col items-center justify-center p-6 border rounded-xl shadow-sm bg-card aspect-square max-h-[400px]">
+        <div class="flex flex-col items-center justify-center p-6 border rounded-xl shadow-sm bg-card aspect-square max-h-[600px]">
            <h3 class="font-bold text-center mb-2 tracking-widest text-muted-foreground text-xs uppercase">LYRICS (%) - <span class="text-primary">{{ dataStore.radarChartData.radarDate }}</span></h3>
            <div class="flex-1 w-full relative">
-              <PolarArea :data="dataStore.radarChartData.radar500k" :options="radialOptions500k" :plugins="[radarEmojiPlugin]" />
+              <PolarArea :data="dataStore.radarChartData.radar500k" :options="radialOptions500k" />
            </div>
         </div>
-        <div class="flex flex-col items-center justify-center p-6 border rounded-xl shadow-sm bg-card aspect-square max-h-[400px]">
+        <div class="flex flex-col items-center justify-center p-6 border rounded-xl shadow-sm bg-card aspect-square max-h-[600px]">
            <h3 class="font-bold text-center mb-2 tracking-widest text-muted-foreground text-xs uppercase">AUDIO (%) - <span class="text-primary">{{ dataStore.radarChartData.radarDate }}</span></h3>
            <div class="flex-1 w-full relative">
-              <PolarArea :data="dataStore.radarChartData.radar278k" :options="radialOptions278k" :plugins="[radarEmojiPlugin]" />
+              <PolarArea :data="dataStore.radarChartData.radar278k" :options="radialOptions278k" />
            </div>
         </div>
      </div>
@@ -496,7 +594,7 @@ const needleLeft = computed(() => {
                                 <span class="text-xs font-mono text-primary font-bold">{{ dataStore.radarChartData.radarDate }}</span>
                             </div>
                             <div class="absolute inset-0 pt-12 pb-16">
-                               <Line ref="masterChartRef" :data="dataStore.liveChartData.line500k" :options="timelineOptions" :plugins="[weeklyPeakPlugin, needlePlugin]" />
+                               <Line ref="masterChartRef" :data="dataStore.liveChartData.line500k" :options="timelineOptions" :plugins="[peakAndShiftPlugin, emotionBackgroundPlugin, needlePlugin]" />
                             </div>
                         </div>
                         
@@ -506,7 +604,7 @@ const needleLeft = computed(() => {
                                 <span class="text-xs font-mono text-primary font-bold">{{ dataStore.radarChartData.radarDate }}</span>
                             </div>
                             <div class="absolute inset-0 pt-12 pb-16">
-                               <Line :data="dataStore.liveChartData.line278k" :options="timelineOptions" :plugins="[weeklyPeakPlugin, needlePlugin]" />
+                               <Line :data="dataStore.liveChartData.line278k" :options="timelineOptions" :plugins="[peakAndShiftPlugin, emotionBackgroundPlugin, needlePlugin]" />
                             </div>
                         </div>
                         

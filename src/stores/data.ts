@@ -72,6 +72,22 @@ export const useDataStore = defineStore('data', () => {
     return result
   }
 
+  function getAcademicDates(year: number) {
+    // Approx UniMelb patterns: 
+    // S1: Starts ~March 1. SWOTVAC is Week 13 (~May 24). Exams are June.
+    // S2: Starts ~July 24. SWOTVAC is Week 43 (~Oct 25). Exams are Nov.
+    return {
+      s1_swotvic_start: `${year}-05-24`,
+      s1_swotvic_end: `${year}-05-31`,
+      s1_exams_start: `${year}-06-01`,
+      s1_exams_end: `${year}-06-21`,
+      s2_swotvic_start: `${year}-10-24`,
+      s2_swotvic_end: `${year}-10-31`,
+      s2_exams_start: `${year}-11-01`,
+      s2_exams_end: `${year}-11-21`,
+    }
+  }
+
   const baseTimeline = computed(() => {
     const hist = filteredHistory.value
     // Explicitly listen to smoothing toggle to trigger re-computation
@@ -432,6 +448,7 @@ export const useDataStore = defineStore('data', () => {
     clear,
     filteredHistory,
     baseTimeline,
-    availableYears
+    availableYears,
+    getAcademicDates
   }
 })
