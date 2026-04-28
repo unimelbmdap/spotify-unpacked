@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Gift } from 'lucide-vue-next'
+import { Gift, Sparkles } from 'lucide-vue-next'
 import {
   Select,
   SelectContent,
@@ -136,6 +136,20 @@ const sourceOrigins = [
           </div>
         </CardContent>
       </Card>
+
+      <RouterLink to="/wrapped">
+        <Card class="transition-colors hover:border-primary/50 bg-primary/5 border-primary/20">
+          <CardHeader>
+            <CardTitle class="flex items-center gap-2 text-primary">
+              <Sparkles class="size-4" />
+              Emotion Wrapped
+            </CardTitle>
+            <CardDescription>
+              Experience your emotional listening journey through an interactive story.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </RouterLink>
 
       <RouterLink to="/donate">
         <Card class="transition-colors hover:border-primary/50">

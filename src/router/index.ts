@@ -19,6 +19,11 @@ const router = createRouter({
       name: 'downloadsteps',
       component: () => import('@/views/DownloadSteps.vue'),
     },
+    {
+      path: '/wrapped',
+      name: 'wrapped',
+      component: () => import('@/views/WrappedView.vue'),
+    },
   ],
 })
 
