@@ -329,127 +329,124 @@ export const useDataStore = defineStore('data', () => {
 
   const wrappedMetrics = computed(() => {
     const hist = filteredHistory.value;
-    
-    const emotionMinutes: Record<string, number> = {};
-    let totalMinutes = 0;
-    
-    // Time of Day: Morning (6-12), Afternoon (12-18), Night (18-6)
-    const timeOfDayEmotions: Record<'morning' | 'afternoon' | 'night', Record<string, number>> = {
-      morning: {}, afternoon: {}, night: {}
-    };
 
-    let totalValenceWeighted = 0;
-    let valenceWeightSum = 0;
-
-    // Track artist contribution to top emotion
-    const topEmotionArtistsMap: Record<string, Record<string, number>> = {};
-
-    hist.forEach(h => {
-      const ms = h.ms_played || 0;
-      if (ms < 30000) return; // skip very short plays (< 30s)
-
-      const minutes = ms / 60000;
-      const em = h.emotion_final;
+    function calculateMetrics(column: 'emotion_500k' | 'emotion_278k') {
+      const emotionMinutes: Record<string, number> = {};
+      let totalMinutes = 0;
       
-      if (em && em !== 'niche_selection') {
-        emotionMinutes[em] = (emotionMinutes[em] || 0) + minutes;
-        totalMinutes += minutes;
+      const timeOfDayEmotions: Record<'morning' | 'afternoon' | 'night', Record<string, number>> = {
+        morning: {}, afternoon: {}, night: {}
+      };
 
-        // Time of Day
-        const hour = new Date(h.ts).getHours();
-        let tod: 'morning' | 'afternoon' | 'night' = 'night';
-        if (hour >= 6 && hour < 12) tod = 'morning';
-        else if (hour >= 12 && hour < 18) tod = 'afternoon';
+      let totalValenceWeighted = 0;
+      let valenceWeightSum = 0;
+
+      const topEmotionArtistsMap: Record<string, Record<string, number>> = {};
+
+      hist.forEach(h => {
+        const ms = h.ms_played || 0;
+        if (ms < 30000) return; // skip < 30s
+
+        const minutes = ms / 60000;
+        const em = h[column];
         
-        timeOfDayEmotions[tod][em] = (timeOfDayEmotions[tod][em] || 0) + minutes;
+        if (em && em !== 'niche_selection') {
+          emotionMinutes[em] = (emotionMinutes[em] || 0) + minutes;
+          totalMinutes += minutes;
 
-        const artist = h.master_metadata_album_artist_name;
-        if (artist) {
-          if (!topEmotionArtistsMap[em]) topEmotionArtistsMap[em] = {};
-          topEmotionArtistsMap[em]![artist] = (topEmotionArtistsMap[em]![artist] || 0) + minutes;
+          const hour = new Date(h.ts).getHours();
+          let tod: 'morning' | 'afternoon' | 'night' = 'night';
+          if (hour >= 6 && hour < 12) tod = 'morning';
+          else if (hour >= 12 && hour < 18) tod = 'afternoon';
+          
+          timeOfDayEmotions[tod][em] = (timeOfDayEmotions[tod][em] || 0) + minutes;
+
+          const artist = h.master_metadata_album_artist_name;
+          if (artist) {
+            if (!topEmotionArtistsMap[em]) topEmotionArtistsMap[em] = {};
+            topEmotionArtistsMap[em]![artist] = (topEmotionArtistsMap[em]![artist] || 0) + minutes;
+          }
+
+          const feats = (h as any).features_500k || (h as any).features_278k;
+          if (feats && feats.valence !== undefined) {
+            totalValenceWeighted += feats.valence * minutes;
+            valenceWeightSum += minutes;
+          }
         }
-
-        // Valence
-        const feats = (h as any).features_500k || (h as any).features_278k;
-        if (feats && feats.valence !== undefined) {
-          totalValenceWeighted += feats.valence * minutes;
-          valenceWeightSum += minutes;
-        }
-      }
-    });
-
-    const emotionShare: Record<string, number> = {};
-    Object.keys(emotionMinutes).forEach(em => {
-      emotionShare[em] = emotionMinutes[em]! / totalMinutes;
-    });
-
-    // Entropy
-    let entropy = 0;
-    Object.values(emotionShare).forEach(share => {
-      if (share > 0) {
-        entropy -= share * Math.log2(share);
-      }
-    });
-
-    // Top Emotion
-    let topEmotion = 'None';
-    let maxShare = 0;
-    Object.keys(emotionShare).forEach(em => {
-      if (emotionShare[em]! > maxShare) {
-        maxShare = emotionShare[em]!;
-        topEmotion = em;
-      }
-    });
-
-    // Top Artists for the Dominant Emotion
-    let topArtists: {name: string, minutes: number}[] = [];
-    if (topEmotionArtistsMap[topEmotion]) {
-      topArtists = Object.entries(topEmotionArtistsMap[topEmotion]!)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([name, minutes]) => ({ name, minutes }));
-    }
-
-    // Time of day dominant
-    const getDom = (tod: 'morning'|'afternoon'|'night') => {
-      let m = 0; let dom = 'None';
-      Object.entries(timeOfDayEmotions[tod]).forEach(([e, val]) => {
-        if (val > m) { m = val; dom = e; }
       });
-      return dom;
-    };
-    
-    // Threshold Persona Rules
-    let persona = "The Listener";
-    const sadShare = (emotionShare['sad'] || 0) + (emotionShare['sadness'] || 0) + (emotionShare['fear'] || 0);
-    const calmShare = (emotionShare['calm'] || 0);
-    const upbeatShare = (emotionShare['happy'] || 0) + (emotionShare['joy'] || 0) + (emotionShare['energetic'] || 0);
 
-    if (entropy > 2.2) {
-      persona = "Mood Explorer";
-    } else if (sadShare > 0.4) {
-      persona = "Emotional Deep-Dive";
-    } else if (calmShare > 0.3) {
-      persona = "Calm & Steady";
-    } else if (upbeatShare > 0.4) {
-      persona = "Upbeat Daily Driver";
+      const emotionShare: Record<string, number> = {};
+      Object.keys(emotionMinutes).forEach(em => {
+        emotionShare[em] = emotionMinutes[em]! / totalMinutes;
+      });
+
+      let entropy = 0;
+      Object.values(emotionShare).forEach(share => {
+        if (share > 0) entropy -= share * Math.log2(share);
+      });
+
+      let topEmotion = 'None';
+      let maxShare = 0;
+      Object.keys(emotionShare).forEach(em => {
+        if (emotionShare[em]! > maxShare) {
+          maxShare = emotionShare[em]!;
+          topEmotion = em;
+        }
+      });
+
+      let topArtists: {name: string, minutes: number}[] = [];
+      if (topEmotionArtistsMap[topEmotion]) {
+        topArtists = Object.entries(topEmotionArtistsMap[topEmotion]!)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([name, minutes]) => ({ name, minutes }));
+      }
+
+      const getDom = (tod: 'morning'|'afternoon'|'night') => {
+        let m = 0; let dom = 'None';
+        Object.entries(timeOfDayEmotions[tod]).forEach(([e, val]) => {
+          if (val > m) { m = val; dom = e; }
+        });
+        return dom;
+      };
+      
+      let persona = "The Listener";
+      const sadShare = (emotionShare['sad'] || 0) + (emotionShare['sadness'] || 0) + (emotionShare['fear'] || 0);
+      const calmShare = (emotionShare['calm'] || 0);
+      const upbeatShare = (emotionShare['happy'] || 0) + (emotionShare['joy'] || 0) + (emotionShare['energetic'] || 0);
+
+      const isEkman = column === 'emotion_500k';
+      if (entropy > (isEkman ? 2.2 : 1.7)) {
+        persona = "Mood Explorer";
+      } else if (sadShare > 0.4) {
+        persona = "Emotional Deep-Dive";
+      } else if (calmShare > 0.3) {
+        persona = "Calm & Steady";
+      } else if (upbeatShare > 0.4) {
+        persona = "Upbeat Daily Driver";
+      }
+
+      return {
+        totalMinutes,
+        emotionMinutes,
+        emotionShare,
+        entropy,
+        topEmotion,
+        topArtists,
+        timeOfDay: {
+          morning: getDom('morning'),
+          afternoon: getDom('afternoon'),
+          night: getDom('night')
+        },
+        averageValence: valenceWeightSum > 0 ? totalValenceWeighted / valenceWeightSum : 0,
+        persona
+      };
     }
 
     return {
-      totalMinutes,
-      emotionMinutes,
-      emotionShare,
-      entropy,
-      topEmotion,
-      topArtists,
-      timeOfDay: {
-        morning: getDom('morning'),
-        afternoon: getDom('afternoon'),
-        night: getDom('night')
-      },
-      averageValence: valenceWeightSum > 0 ? totalValenceWeighted / valenceWeightSum : 0,
-      persona
-    };
+      ekman: calculateMetrics('emotion_500k'),
+      thayer: calculateMetrics('emotion_278k')
+    }
   });
 
   function getChartData(chartType: string): any | undefined {

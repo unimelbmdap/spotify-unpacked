@@ -1,5 +1,5 @@
 <template>
-  <div class="wrapped-container" :style="{ backgroundColor: currentBgColor }">
+  <div class="wrapped-container" :style="{ background: currentBgColor }">
     
     <!-- No Data State -->
     <div v-if="!dataStore.hasData" class="no-data">
@@ -76,17 +76,21 @@ const baseCMap = dataStore.baseTimeline.cMap || {}
 const metrics = computed(() => dataStore.wrappedMetrics)
 
 const currentBgColor = computed(() => {
-  // Use the dominant emotion color for the background
-  const domEm = metrics.value.topEmotion
-  let hex = baseCMap[domEm] || '#1a1a1a'
+  const eDom = metrics.value.ekman.topEmotion
+  const tDom = metrics.value.thayer.topEmotion
+  
+  let eHex = baseCMap[eDom] || '#1a1a1a'
+  let tHex = baseCMap[tDom] || '#1a1a1a'
+  
+  eHex = darkenHex(eHex, 0.6)
+  tHex = darkenHex(tHex, 0.6)
   
   if (currentIndex.value === 4) {
-    // Persona card gets a special dark background
-    return '#111827'
+    eHex = darkenHex(eHex, 0.8)
+    tHex = darkenHex(tHex, 0.8)
   }
   
-  // Blend to make it darker/more aesthetic
-  return darkenHex(hex, 0.6)
+  return `linear-gradient(135deg, ${eHex} 0%, ${tHex} 100%)`
 })
 
 function darkenHex(hex: string, factor: number) {
@@ -165,7 +169,6 @@ onUnmounted(() => {
 
 .wrapped-content {
   width: 100%;
-  max-width: 500px;
   height: 100%;
   max-height: 900px;
   position: relative;

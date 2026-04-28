@@ -14,10 +14,19 @@ const chartData = computed(() => {
   const neg = dataStore.baseTimeline.tugNeg
   const valence = pos.map((p, i) => p + (neg[i] || 0))
 
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const labels = dates.map(d => {
+    const parts = d.split('-')
+    if (parts.length === 3) {
+      return monthNames[parseInt(parts[1]) - 1]
+    }
+    return d
+  })
+
   return {
-    labels: dates,
+    labels: labels,
     datasets: [{
-      label: 'Mood Arc',
+      label: 'Combined Mood Arc',
       data: valence,
       borderColor: 'white',
       borderWidth: 3,
@@ -34,16 +43,26 @@ const chartOptions = {
     legend: { display: false }
   },
   scales: {
-    x: { display: false },
+    x: { 
+      display: true,
+      grid: { display: false },
+      ticks: {
+        color: 'rgba(255,255,255,0.7)',
+        maxRotation: 0,
+        autoSkip: true,
+        maxTicksLimit: 12
+      }
+    },
     y: { display: false }
-  }
+  },
+  layout: { padding: 0 }
 }
 </script>
 
 <template>
   <div class="wrapped-card">
     <div class="card-content animate-slide-up">
-      <h2 class="pre-title">Your emotional arc over time</h2>
+      <h2 class="pre-title">Your combined emotional arc</h2>
       
       <div class="chart-container">
         <Line :data="chartData" :options="chartOptions" />
@@ -62,16 +81,20 @@ const chartOptions = {
   align-items: center;
   text-align: center;
   color: white;
-  padding: 2rem;
+  width: 100%;
+}
+.card-content {
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 .pre-title { font-size: 1.5rem; font-weight: 500; opacity: 0.9; margin-bottom: 3rem; }
 .chart-container {
-  width: 100%;
-  max-width: 600px;
-  height: 300px;
-  background: rgba(255,255,255,0.05);
-  border-radius: 1rem;
-  padding: 1rem;
+  width: 100vw;
+  height: 400px;
+  background: rgba(255,255,255,0.02);
+  padding-top: 1rem;
 }
 .animate-slide-up { animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; transform: translateY(40px); }
 @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
