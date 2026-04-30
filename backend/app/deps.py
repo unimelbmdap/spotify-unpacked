@@ -52,3 +52,35 @@ def require_admin(
             detail="Invalid admin credentials",
             headers={"WWW-Authenticate": 'Basic realm="admin"'},
         )
+
+
+from app.mediaflux.client import MediafluxClient, StubMediafluxClient  # noqa: E402
+
+_mediaflux_client: MediafluxClient | None = None
+
+
+def get_mediaflux_client(settings: Settings = Depends(get_settings)) -> MediafluxClient:
+    global _mediaflux_client
+    if _mediaflux_client is not None:
+        return _mediaflux_client
+    if settings.mediaflux_client == "stub":
+        _mediaflux_client = StubMediafluxClient()
+    elif settings.mediaflux_client == "aterm":
+        # AtermMediafluxClient is added in Task 21.
+        from app.mediaflux.client import AtermMediafluxClient
+
+        _mediaflux_client = AtermMediafluxClient(
+            jar_path=settings.aterm_jar_path,
+            host=settings.mediaflux_host,
+            port=settings.mediaflux_port,
+            token=settings.mediaflux_token,
+        )
+    else:  # pragma: no cover
+        raise RuntimeError(f"Unknown MEDIAFLUX_CLIENT={settings.mediaflux_client}")
+    return _mediaflux_client
+
+
+def reset_mediaflux_client() -> None:
+    """Test helper: clear the cached client."""
+    global _mediaflux_client
+    _mediaflux_client = None
