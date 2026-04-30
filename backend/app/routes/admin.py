@@ -1,12 +1,17 @@
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.deps import get_db, require_admin
-from app.models import CodeStatus
+from app.models import AuditEvent, CodeStatus, Donation
 from app.schemas import (
+    AuditEventResponse,
     CodeCreateRequest,
     CodeResponse,
     CodeUpdateRequest,
+    DonationListItem,
 )
 from app.services import codes as codes_service
 
@@ -63,3 +68,48 @@ async def patch_code(code: str, req: CodeUpdateRequest, db: AsyncSession = Depen
     await db.commit()
     await db.refresh(updated)
     return _to_response(updated)
+
+
+@router.get("/donations", response_model=list[DonationListItem])
+async def list_donations(
+    code: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = select(Donation).order_by(Donation.submitted_at.desc())
+    if code is not None:
+        stmt = stmt.where(Donation.code == code)
+    rows = (await db.exec(stmt)).all()
+    return [
+        DonationListItem(
+            id=d.id,
+            code=d.code,
+            status=d.status.value,
+            submitted_at=d.submitted_at,
+            completed_at=d.completed_at,
+            consent_version=d.consent_version,
+            asset_ids=json.loads(d.asset_ids_json) if d.asset_ids_json else [],
+        )
+        for d in rows
+    ]
+
+
+@router.get("/audit", response_model=list[AuditEventResponse])
+async def list_audit(
+    limit: int = 200,
+    db: AsyncSession = Depends(get_db),
+):
+    limit = max(1, min(limit, 1000))
+    rows = (
+        await db.exec(select(AuditEvent).order_by(AuditEvent.ts.desc()).limit(limit))
+    ).all()
+    return [
+        AuditEventResponse(
+            id=e.id,
+            ts=e.ts,
+            kind=e.kind,
+            code=e.code,
+            client_ip_hash=e.client_ip_hash,
+            detail_json=e.detail_json,
+        )
+        for e in rows
+    ]
