@@ -48,9 +48,9 @@ async def test_can_persist_each_model(tmp_path):
         await s.commit()
 
     async with Session() as s:
-        codes = (await s.execute(select(ParticipantCode))).scalars().all()
-        donations = (await s.execute(select(Donation))).scalars().all()
-        events = (await s.execute(select(AuditEvent))).scalars().all()
+        codes = (await s.exec(select(ParticipantCode))).all()
+        donations = (await s.exec(select(Donation))).all()
+        events = (await s.exec(select(AuditEvent))).all()
 
     assert len(codes) == 1 and codes[0].code == "abc"
     assert len(donations) == 1 and donations[0].status == DonationStatus.pending
