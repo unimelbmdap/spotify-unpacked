@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     # Admin
     admin_username: str = "admin"
-    admin_password: str = Field(min_length=6)
+    admin_password: str = Field(min_length=8)
 
     # Consent
     consent_version: str = "v1.0"
