@@ -1,11 +1,17 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import DashboardView from '@/views/DashboardView.vue'
+import PresentationRoot from '@/views/PresentationRoot.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
+      name: 'presentation',
+      component: PresentationRoot,
+    },
+    {
+      path: '/upload',
       name: 'dashboard',
       component: DashboardView,
     },

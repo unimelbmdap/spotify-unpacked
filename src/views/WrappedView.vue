@@ -1,11 +1,14 @@
 <template>
-  <div class="wrapped-container" :style="{ background: currentBgColor }">
+  <div class="wrapped-container" style="background: linear-gradient(135deg, #1a1a2e 0%, #3a0ca3 100%)">
     
     <!-- No Data State -->
-    <div v-if="!dataStore.hasData" class="no-data">
+    <div v-if="!store.isLoaded" class="no-data">
+      <h1>Loading your Wrapped...</h1>
+    </div>
+    <div v-else-if="cards.length === 0" class="no-data">
       <h1>We need your data first!</h1>
-      <p>Please return to the dashboard and upload your streaming history to see your Wrapped.</p>
-      <button class="go-back-btn" @click="goHome">Go to Dashboard</button>
+      <p>Please return to the dashboard and select a participant.</p>
+      <button class="go-back-btn" @click="goHome">Go to Directory</button>
     </div>
 
     <!-- Wrapped Story -->
@@ -29,7 +32,7 @@
 
       <!-- Current Card -->
       <transition name="fade" mode="out-in">
-        <component :is="cards[currentIndex].component" :key="currentIndex" />
+        <GenericWrappedCard :card="cards[currentIndex]" :key="currentIndex" />
       </transition>
 
       <!-- Navigation Overlays -->
@@ -45,66 +48,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, shallowRef } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useDataStore } from '@/stores/data'
-
-import DominantMoodCard from '@/components/wrapped/DominantMoodCard.vue'
-import EmotionalArcCard from '@/components/wrapped/EmotionalArcCard.vue'
-import TimeOfDayCard from '@/components/wrapped/TimeOfDayCard.vue'
-import TopEmotionArtistsCard from '@/components/wrapped/TopEmotionArtistsCard.vue'
-import PersonaCard from '@/components/wrapped/PersonaCard.vue'
+import { usePresentationStore } from '@/stores/presentation'
+import GenericWrappedCard from '@/components/wrapped/GenericWrappedCard.vue'
 
 const router = useRouter()
-const dataStore = useDataStore()
+const store = usePresentationStore()
 
-const cards = shallowRef([
-  { component: DominantMoodCard },
-  { component: EmotionalArcCard },
-  { component: TimeOfDayCard },
-  { component: TopEmotionArtistsCard },
-  { component: PersonaCard },
-])
+const cards = computed(() => store.selectedCards)
 
 const currentIndex = ref(0)
 const progress = ref(0)
 let timer: number | null = null
 
 const DURATION = 10000 // 10 seconds per card
-
-const baseCMap = dataStore.baseTimeline.cMap || {}
-const metrics = computed(() => dataStore.wrappedMetrics)
-
-const currentBgColor = computed(() => {
-  const eDom = metrics.value.ekman.topEmotion
-  const tDom = metrics.value.thayer.topEmotion
-  
-  let eHex = baseCMap[eDom] || '#1a1a1a'
-  let tHex = baseCMap[tDom] || '#1a1a1a'
-  
-  eHex = darkenHex(eHex, 0.6)
-  tHex = darkenHex(tHex, 0.6)
-  
-  if (currentIndex.value === 4) {
-    eHex = darkenHex(eHex, 0.8)
-    tHex = darkenHex(tHex, 0.8)
-  }
-  
-  return `linear-gradient(135deg, ${eHex} 0%, ${tHex} 100%)`
-})
-
-function darkenHex(hex: string, factor: number) {
-  if (!hex.startsWith('#')) return '#1a1a1a'
-  let r = parseInt(hex.slice(1,3), 16)
-  let g = parseInt(hex.slice(3,5), 16)
-  let b = parseInt(hex.slice(5,7), 16)
-  
-  r = Math.floor(r * (1 - factor))
-  g = Math.floor(g * (1 - factor))
-  b = Math.floor(b * (1 - factor))
-  
-  return `rgb(${r},${g},${b})`
-}
 
 function startTimer() {
   progress.value = 0
@@ -127,6 +85,10 @@ function nextCard() {
     // End of wrapped
     if (timer) clearInterval(timer)
     progress.value = 100
+    // Optionally redirect to profile overview at the end
+    setTimeout(() => {
+      goHome()
+    }, 1000)
   }
 }
 
@@ -140,11 +102,18 @@ function prevCard() {
 }
 
 function goHome() {
-  router.push('/')
+  const query = store.selectedUserId ? { user: store.selectedUserId } : {}
+  router.push({ path: '/', query })
 }
 
 onMounted(() => {
-  startTimer()
+  if (cards.value.length > 0) {
+    startTimer()
+  } else if (!store.isLoaded) {
+    store.loadData().then(() => {
+      if (cards.value.length > 0) startTimer()
+    })
+  }
 })
 
 onUnmounted(() => {
@@ -156,12 +125,11 @@ onUnmounted(() => {
 .wrapped-container {
   width: 100vw;
   height: 100vh;
-  transition: background-color 1s ease;
   display: flex;
   justify-content: center;
   align-items: center;
   overflow: hidden;
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   z-index: 9999;
@@ -170,7 +138,6 @@ onUnmounted(() => {
 .wrapped-content {
   width: 100%;
   height: 100%;
-  max-height: 900px;
   position: relative;
   display: flex;
   flex-direction: column;

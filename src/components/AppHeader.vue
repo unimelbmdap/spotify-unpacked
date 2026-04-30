@@ -10,8 +10,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
+import { usePresentationStore } from '@/stores/presentation'
 
 const isOpen = ref(false)
+const presentationStore = usePresentationStore()
 
 const colourMode = useColorMode({
   emitAuto: true,
@@ -21,7 +25,13 @@ const colourMode = useColorMode({
 
 <template>
   <header class="bg-background border-b flex h-12 shrink-0 items-center justify-between px-4">
-    <span class="text-base font-semibold">Spotify Unpacked</span>
+    <div class="flex items-center gap-4">
+      <router-link to="/" class="text-base font-semibold hover:text-primary transition-colors">Spotify Unpacked</router-link>
+      <div class="h-4 w-px bg-border"></div>
+      <router-link to="/upload" class="text-sm text-muted-foreground hover:text-foreground transition-colors">Temporal Dashboard</router-link>
+      <div class="h-4 w-px bg-border"></div>
+      <router-link to="/" class="text-sm text-muted-foreground hover:text-foreground transition-colors">Participant Directory</router-link>
+    </div>
 
     <div class="flex items-center gap-2">
       <DropdownMenu>
@@ -40,6 +50,11 @@ const colourMode = useColorMode({
           <DropdownMenuItem @click="colourMode = 'auto'"> System </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <div class="flex items-center space-x-2 mr-4 border-r pr-4">
+        <Switch id="research-mode" :checked="presentationStore.isResearchMode" @update:checked="(val: boolean) => presentationStore.setResearchMode(val)" />
+        <Label htmlFor="research-mode" class="text-sm cursor-pointer">Research Mode</Label>
+      </div>
 
       <Popover v-model:open="isOpen">
         <PopoverTrigger as-child>
