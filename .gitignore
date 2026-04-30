@@ -57,3 +57,4 @@ playwright-report/
 
 .mcp.json
 .claude
+/explorations/code/data
