@@ -1,0 +1,86 @@
+{
+    "dataset_shape": {
+        "rows": 2420,
+        "cols": 29
+    },
+    "date_coverage": {
+        "start": "2013-09-27 05:51:09+00:00",
+        "end": "2025-06-20 06:13:39+00:00"
+    },
+    "missingness": {
+        "audiobook_uri": 100.0,
+        "audiobook_chapter_uri": 100.0,
+        "audiobook_chapter_title": 100.0,
+        "audiobook_title": 100.0,
+        "spotify_episode_uri": 99.58677685950413,
+        "episode_show_name": 99.58677685950413,
+        "episode_name": 99.58677685950413,
+        "offline_timestamp": 10.12396694214876,
+        "spotify_track_uri": 0.4132231404958678,
+        "master_metadata_album_album_name": 0.4132231404958678,
+        "master_metadata_album_artist_name": 0.4132231404958678,
+        "master_metadata_track_name": 0.4132231404958678
+    },
+    "boolean_proportions": {
+        "shuffle": {
+            "false": 0.8933884297520661,
+            "true": 0.10661157024793388
+        },
+        "skipped": {
+            "false": 0.5702479338842975,
+            "true": 0.4297520661157025
+        },
+        "incognito_mode": {
+            "false": 0.9921487603305785,
+            "true": 0.007851239669421488
+        }
+    },
+    "categorical_distributions": {
+        "reason_start": {
+            "trackdone": 0.4471074380165289,
+            "clickrow": 0.2636363636363636,
+            "playbtn": 0.1628099173553719,
+            "fwdbtn": 0.05619834710743802,
+            "remote": 0.031818181818181815,
+            "appload": 0.021074380165289255,
+            "backbtn": 0.015289256198347107,
+            "unknown": 0.0012396694214876034,
+            "trackerror": 0.0008264462809917355
+        },
+        "reason_end": {
+            "trackdone": 0.4417355371900826,
+            "endplay": 0.36446280991735536,
+            "unexpected-exit-while-paused": 0.07727272727272727,
+            "fwdbtn": 0.05537190082644628,
+            "logout": 0.03347107438016529,
+            "backbtn": 0.015289256198347107,
+            "remote": 0.00743801652892562,
+            "unknown": 0.00371900826446281,
+            "unexpected-exit": 0.0008264462809917355,
+            "playbtn": 0.00041322314049586776
+        },
+        "conn_country": {
+            "AU": 0.9801652892561984,
+            "HK": 0.017768595041322315,
+            "NL": 0.001652892561983471,
+            "CN": 0.00041322314049586776
+        },
+        "platform": {
+            "ios": 0.5173553719008265,
+            "osx": 0.41570247933884297,
+            "android": 0.025206611570247933,
+            "iOS 10.3.3 (iPhone7,2)": 0.024793388429752067,
+            "windows": 0.013636363636363636,
+            "WebPlayer (websocket RFC6455)": 0.002892561983471074,
+            "cast": 0.00041322314049586776
+        }
+    },
+    "duration_stats": {
+        "median_ms": 123872.0,
+        "short_play_percent": 27.27272727272727
+    },
+    "skip_diagnostics": {
+        "raw_skip_rate": 42.97520661157025,
+        "proxy_skip_rate": 43.51239669421488
+    }
+}

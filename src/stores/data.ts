@@ -10,7 +10,9 @@ import { useVisualisationStore } from '@/stores/visualisation'
 import type { SpotifyStreamingHistoryRecord, SpotifyPlaylist, SpotifyLibraryTrack } from '@/types/spotify'
 
 export const useDataStore = defineStore('data', () => {
+  /** Files currently loaded into the browser session */
   const files = ref<LoadedFile[]>([])
+  /** Global loading state for data processing */
   const isLoading = ref(false)
 
   // Data State
@@ -24,6 +26,10 @@ export const useDataStore = defineStore('data', () => {
 
   const visStore = useVisualisationStore()
 
+  /**
+   * Computed history filtered by date range, year, source origin, and AI ghost status.
+   * This is the primary data source for all visualisations.
+   */
   const filteredHistory = computed(() => {
     let hist = streamingHistory.value
 
@@ -72,6 +78,10 @@ export const useDataStore = defineStore('data', () => {
     return result
   }
 
+  /**
+   * Returns approximate University of Melbourne academic dates for a given year.
+   * Includes SWOTVAC and Exam periods for Semesters 1 and 2.
+   */
   function getAcademicDates(year: number) {
     // Approx UniMelb patterns: 
     // S1: Starts ~March 1. SWOTVAC is Week 13 (~May 24). Exams are June.
@@ -88,6 +98,16 @@ export const useDataStore = defineStore('data', () => {
     }
   }
 
+  /**
+   * Core analytical pipeline that computes the continuous emotional timeline.
+   * Handles:
+   * 1. Data sorting and cleaning.
+   * 2. Nearest-neighbor emotion imputation.
+   * 3. Daily aggregation of ms_played per emotion.
+   * 4. 7-day rolling mean smoothing.
+   * 5. Valence-based "Tug of War" calculation.
+   * 6. Coverage auditing (Observed vs Imputed).
+   */
   const baseTimeline = computed(() => {
     const hist = filteredHistory.value
     // Explicitly listen to smoothing toggle to trigger re-computation

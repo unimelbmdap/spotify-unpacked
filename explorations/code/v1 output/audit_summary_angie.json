@@ -1,0 +1,138 @@
+{
+    "dataset_shape": {
+        "rows": 41704,
+        "cols": 29
+    },
+    "date_coverage": {
+        "start": "2021-08-30 14:39:43+00:00",
+        "end": "2026-04-13 23:04:26+00:00"
+    },
+    "missingness": {
+        "audiobook_uri": 99.99760214847497,
+        "audiobook_chapter_uri": 99.99760214847497,
+        "audiobook_chapter_title": 99.99760214847497,
+        "audiobook_title": 99.99760214847497,
+        "spotify_episode_uri": 99.89209668137349,
+        "episode_show_name": 99.89209668137349,
+        "episode_name": 99.89209668137349,
+        "offline_timestamp": 79.07394974103204,
+        "spotify_track_uri": 0.11749472472664492,
+        "master_metadata_album_album_name": 0.11749472472664492,
+        "master_metadata_album_artist_name": 0.11749472472664492,
+        "master_metadata_track_name": 0.11749472472664492
+    },
+    "boolean_proportions": {
+        "shuffle": {
+            "false": 0.6830759639363131,
+            "true": 0.3169240360636869
+        },
+        "skipped": {
+            "false": 0.9635286783042394,
+            "true": 0.036471321695760596
+        },
+        "incognito_mode": {
+            "false": 0.9949405332821791,
+            "true": 0.005059466717820833
+        }
+    },
+    "categorical_distributions": {
+        "reason_start": {
+            "trackdone": 0.8662478419336275,
+            "fwdbtn": 0.05783617878380971,
+            "clickrow": 0.029973144062919625,
+            "remote": 0.018487435258008823,
+            "playbtn": 0.01472280836370612,
+            "appload": 0.008176673700364474,
+            "trackerror": 0.0023498944945328985,
+            "backbtn": 0.001990216765777863,
+            "unknown": 0.00016784960675234989,
+            "reconnect": 4.79570305006714e-05
+        },
+        "reason_end": {
+            "trackdone": 0.8742806445424899,
+            "fwdbtn": 0.05661327450604259,
+            "endplay": 0.034337233838480724,
+            "unexpected-exit-while-paused": 0.020285823901784003,
+            "unexpected-exit": 0.0057068866295798965,
+            "remote": 0.0035488202570496835,
+            "logout": 0.002973335891041627,
+            "backbtn": 0.0019422597352771916,
+            "trackerror": 0.00016784960675234989,
+            "unknown": 0.0001438710915020142
+        },
+        "conn_country": {
+            "AU": 0.9974342988682141,
+            "JP": 0.00223000191828122,
+            "CN": 0.00033569921350469977
+        },
+        "platform": {
+            "windows": 0.2661615192787263,
+            "ios": 0.17552273163245732,
+            "web_player windows 10;chrome 95.0.4638.69;desktop": 0.030284864761173987,
+            "iOS 15.2.1 (iPhone14,5)": 0.027910991751390755,
+            "iOS 15.0.2 (iPhone11,8)": 0.023163245731824284,
+            "web_player windows 10;chrome 94.0.4606.81;desktop": 0.021676577786303473,
+            "iOS 14.7.1 (iPhone11,8)": 0.020117974295031652,
+            "web_player windows 10;chrome 104.0.0.0;desktop": 0.020046038749280643,
+            "web_player windows 10;chrome 93.0.4577.82;desktop": 0.01935066180702091,
+            "Partner google cast_touch;Chromecast_Assistant_Touch;;5.11.1--1.56.500000": 0.018871091502014194,
+            "web_player windows 10;chrome 96.0.4664.45;desktop": 0.01855937080375983,
+            "web_player windows 10;chrome 105.0.0.0;desktop": 0.017959907922501437,
+            "iOS 15.4.1 (iPhone14,5)": 0.017863993861500095,
+            "iOS 15.5 (iPhone14,5)": 0.017384423556493382,
+            "iOS 15.3.1 (iPhone14,5)": 0.016569154037981967,
+            "web_player windows 10;chrome 103.0.0.0;desktop": 0.015202378668712834,
+            "web_player windows 10;chrome 96.0.4664.110;desktop": 0.015010550546710147,
+            "web_player windows 10;chrome 97.0.4692.99;desktop": 0.014530980241703434,
+            "web_player windows 10;chrome 92.0.4515.159;desktop": 0.014003452906196048,
+            "web_player windows 10;chrome 98.0.4758.102;desktop": 0.01388356032994437,
+            "web_player windows 10;chrome 94.0.4606.61;desktop": 0.013859581814694034,
+            "web_player windows 10;chrome 96.0.4664.93;desktop": 0.013763667753692692,
+            "web_player windows 10;chrome 101.0.4951.67;desktop": 0.013356032994436984,
+            "web_player windows 10;chrome 100.0.4896.127;desktop": 0.01326011893343564,
+            "iOS 16.0.2 (iPhone14,5)": 0.012444849414924228,
+            "web_player windows 10;chrome 102.0.5005.63;desktop": 0.012181085747170535,
+            "web_player windows 10;chrome 97.0.4692.71;desktop": 0.011605601381162478,
+            "web_player windows 10;chrome 99.0.4844.82;desktop": 0.010838288893151736,
+            "web_player windows 10;chrome 102.0.0.0;desktop": 0.010070976405140994,
+            "web_player windows 10;chrome 101.0.4951.54;desktop": 0.009903126798388643,
+            "web_player windows 10;chrome 93.0.4577.63;desktop": 0.009231728371379245,
+            "iOS 15.6.1 (iPhone14,5)": 0.008680222520621523,
+            "web_player windows 10;chrome 95.0.4638.54;desktop": 0.008152695185114137,
+            "iOS 15.6 (iPhone14,5)": 0.008128716669863803,
+            "web_player windows 10;chrome 99.0.4844.51;desktop": 0.006498177632840975,
+            "web_player windows 10;chrome 99.0.4844.74;desktop": 0.006378285056589296,
+            "web_player windows 10;chrome 100.0.4896.75;desktop": 0.0060905428735852675,
+            "web_player windows 10;chrome 99.0.4844.84;desktop": 0.0054910799923268755,
+            "Partner google cast_touch;Chromecast_Assistant_Touch;;5.1.0--1.52.999999": 0.0045079608670631115,
+            "Windows 10 (10.0.19043; x64)": 0.0033809706502973334,
+            "web_player windows 10;chrome 102.0.5005.115;desktop": 0.003261078074045655,
+            "web_player windows 10;chrome 94.0.4606.71;desktop": 0.003189142528294648,
+            "Partner google cast_touch;Chromecast_Assistant_Touch;;5.12.0--1.56.500000": 0.0029973144062919624,
+            "web_player windows 10;chrome 98.0.4758.81;desktop": 0.0027335507385382696,
+            "web_player windows 10;chrome 100.0.4896.88;desktop": 0.0027335507385382696,
+            "web_player windows 10;chrome 98.0.4758.82;desktop": 0.002301937464032227,
+            "web_player windows 10;chrome 100.0.4896.60;desktop": 0.0022779589487818912,
+            "iOS 15.2 (iPhone14,5)": 0.00223000191828122,
+            "Partner google cast_touch;Chromecast_Assistant_Touch;;5.14.2--1.56.500000": 0.0012948398235181277,
+            "Partner google cast_touch;Chromecast_Assistant_Touch;;5.3.2--1.52.999999": 0.0011269902167657779,
+            "web_player windows 10;chrome 106.0.0.0;desktop": 0.0011030117015154422,
+            "cast": 0.0008152695185114138,
+            "Windows 10 (10.0.22000; x64)": 0.0007193554575100709,
+            "Partner google cast_touch;Chromecast_Assistant_Touch;;5.16.3--1.56.500000": 0.0005754843660080568,
+            "iOS 15.2 (iPhone11,8)": 0.0002158066372530213,
+            "Partner google cast_touch;Google_Nest_Hub;;5.1.0--1.52.999999": 0.0001918281220026856,
+            "Partner google cast_touch;Chromecast_Assistant_Touch;;5.8.0--1.56.500000": 0.00016784960675234989,
+            "Partner google cast_touch;Chromecast_Assistant_Touch;;5.15.0--1.56.500000": 0.0001438710915020142,
+            "Partner google cast_touch;Chromecast_Assistant_Touch;;5.0.8--1.52.999999": 2.39785152503357e-05
+        }
+    },
+    "duration_stats": {
+        "median_ms": 231940.0,
+        "short_play_percent": 6.227220410512182
+    },
+    "skip_diagnostics": {
+        "raw_skip_rate": 3.6471321695760595,
+        "proxy_skip_rate": 9.28927680798005
+    }
+}

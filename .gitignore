@@ -58,3 +58,4 @@ playwright-report/
 .mcp.json
 .claude
 /explorations/code/data
+/research_pipeline/input_data

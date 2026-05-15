@@ -21,6 +21,10 @@ import {
   Tooltip,
 } from 'chart.js'
 
+/**
+ * Registers essential Chart.js components and controllers.
+ * Custom plugins and specific chart options are managed in ChartDisplay.vue.
+ */
 Chart.register(
   ArcElement,
   BarController,

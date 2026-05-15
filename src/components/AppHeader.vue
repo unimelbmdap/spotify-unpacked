@@ -30,6 +30,8 @@ const colourMode = useColorMode({
       <div class="h-4 w-px bg-border"></div>
       <router-link to="/upload" class="text-sm text-muted-foreground hover:text-foreground transition-colors">Temporal Dashboard</router-link>
       <div class="h-4 w-px bg-border"></div>
+      <router-link to="/audit" class="text-sm text-muted-foreground hover:text-foreground transition-colors">Behavioral Audit</router-link>
+      <div class="h-4 w-px bg-border"></div>
       <router-link to="/" class="text-sm text-muted-foreground hover:text-foreground transition-colors">Participant Directory</router-link>
     </div>
 
