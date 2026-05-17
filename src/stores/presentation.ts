@@ -110,7 +110,7 @@ export const usePresentationStore = defineStore('presentation', () => {
       for (const row of measuresParsed.data as any[]) {
         if (row.person_id) {
           if (!newMeasures[row.person_id]) newMeasures[row.person_id] = []
-          newMeasures[row.person_id].push(row)
+          newMeasures[row.person_id]!.push(row)
         }
       }
       measuresByUser.value = newMeasures
@@ -119,7 +119,7 @@ export const usePresentationStore = defineStore('presentation', () => {
       for (const row of cardsParsed.data as any[]) {
         if (row.person_id) {
           if (!newCards[row.person_id]) newCards[row.person_id] = []
-          newCards[row.person_id].push(row)
+          newCards[row.person_id]!.push(row)
         }
       }
       cardsByUser.value = newCards

@@ -30,36 +30,64 @@ const peakAndShiftPlugin = {
     ctx.save()
     ctx.textAlign = 'center'
 
-    // 1. Weekly Peaks
-    for (let i = 0; i < labels.length; i += 7) {
-      const end = Math.min(i + 7, labels.length)
-      let maxVal = -1
-      let maxIdx = -1
-      let maxLabel = ''
-
-      datasets.forEach((ds: any) => {
-        for (let j = i; j < end; j++) {
-          if (ds.data[j] > maxVal) {
-            maxVal = ds.data[j]
-            maxIdx = j
-            maxLabel = ds.label
+    // 1. Prominent Peaks (Local Maxima)
+    const peaks: { idx: number, label: string, val: number }[] = []
+    datasets.forEach((ds: any) => {
+      for (let i = 0; i < labels.length; i++) {
+        const val = ds.data[i]
+        if (val > 20) {
+          let isMax = true
+          for (let j = Math.max(0, i - 3); j <= Math.min(labels.length - 1, i + 3); j++) {
+            if (i !== j && ds.data[j] > val) {
+              isMax = false
+              break
+            }
+          }
+          if (isMax) {
+             let isStrictlyMax = true
+             for (let j = Math.max(0, i - 3); j < i; j++) { 
+               if (ds.data[j] >= val) isStrictlyMax = false 
+             }
+             if (isStrictlyMax) {
+                peaks.push({ idx: i, label: ds.label, val })
+             }
           }
         }
-      })
-
-      if (maxVal > 20 && maxIdx !== -1) {
-        const dsIdx = chart.data.datasets.findIndex((ds:any) => ds.label === maxLabel)
-        const meta = chart.getDatasetMeta(dsIdx)
-        if (meta && meta.data[maxIdx]) {
-           const point = meta.data[maxIdx]
-           const emoji = emojiMap[maxLabel] || ''
-           if (emoji) {
-              ctx.font = '16px Arial'
-              ctx.fillText(emoji, point.x, point.y - 12)
-           }
-        }
+      }
+    })
+    
+    // Sort peaks by value descending to prioritize the highest peaks
+    peaks.sort((a, b) => b.val - a.val)
+    
+    // Filter peaks to ensure they are at least 7 days apart to avoid visual clutter
+    const filteredPeaks: typeof peaks = []
+    for (const p of peaks) {
+      if (!filteredPeaks.some(fp => Math.abs(fp.idx - p.idx) < 7)) {
+        filteredPeaks.push(p)
       }
     }
+    
+    filteredPeaks.forEach(p => {
+        const dsIdx = chart.data.datasets.findIndex((ds:any) => ds.label === p.label)
+        const meta = chart.getDatasetMeta(dsIdx)
+        if (meta && meta.data[p.idx]) {
+           const point = meta.data[p.idx]
+           const emoji = emojiMap[p.label] || ''
+           if (emoji) {
+              // Find the visual top of the stack at this point
+              let topY = point.y
+              chart.data.datasets.forEach((_: any, i: number) => {
+                 const m = chart.getDatasetMeta(i)
+                 if (m && m.data[p.idx] && !m.hidden) {
+                    if (m.data[p.idx].y < topY) topY = m.data[p.idx].y
+                 }
+              })
+
+              ctx.font = '16px Arial'
+              ctx.fillText(emoji, point.x, topY - 12)
+           }
+        }
+    })
 
     // 2. Emotion Shifts
     let lastDominant = ''
@@ -86,9 +114,18 @@ const peakAndShiftPlugin = {
           const meta = chart.getDatasetMeta(dsIdx)
           if (meta && meta.data[i]) {
             const point = meta.data[i]
+            
+            let topY = point.y
+            chart.data.datasets.forEach((_: any, idx: number) => {
+               const m = chart.getDatasetMeta(idx)
+               if (m && m.data[i] && !m.hidden) {
+                  if (m.data[i].y < topY) topY = m.data[i].y
+               }
+            })
+
             ctx.font = '12px Arial'
             ctx.globalAlpha = 0.6
-            ctx.fillText('🔄', point.x, point.y - 25) 
+            ctx.fillText('🔄', point.x, topY - 25) 
             ctx.globalAlpha = 1.0
           }
           lastDominant = currentDominant
@@ -236,18 +273,31 @@ const academicAnnotations = computed(() => {
   const dates = dataStore.liveChartData.line500k?.labels as string[] | undefined
   if (!dates || dates.length === 0) return {}
 
+  const firstDate = dates[0]!
+  const lastDate = dates[dates.length - 1]!
+
   const activeYears = Array.from(new Set(dates.map(d => new Date(d).getFullYear())))
 
   const annotations: any = {}
-  let annId = 0
+  
+  const addAnnotation = (key: string, start: string, end: string, color: string, text: string) => {
+    // Skip if the entire annotation is outside the dataset's timeframe
+    if (end < firstDate || start > lastDate) return
+
+    // Clamp bounds so Chart.js CategoryScale doesn't append non-existent dates to the end of the X axis
+    const clampStart = start < firstDate ? firstDate : (start > lastDate ? lastDate : start)
+    const clampEnd = end < firstDate ? firstDate : (end > lastDate ? lastDate : end)
+
+    const labelStyle = { display: true, position: 'center' as const, font: { size: 9, weight: 'bold' as const }, color: isDark.value ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)' }
+    annotations[key] = { type: 'box', xMin: clampStart, xMax: clampEnd, yMin: 105, yMax: 115, backgroundColor: color, borderWidth: 0, drawTime: 'afterDatasetsDraw', label: { ...labelStyle, content: text } }
+  }
+
   activeYears.forEach(y => {
       const ad = dataStore.getAcademicDates(y)
-      const labelStyle = { display: true, position: 'center' as const, font: { size: 9, weight: 'bold' as const }, color: isDark.value ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)' }
-      
-      annotations[`swot1_${y}`] = { type: 'box', xMin: ad.s1_swotvic_start, xMax: ad.s1_swotvic_end, yMin: 105, yMax: 115, backgroundColor: swotvacColor, borderWidth: 0, drawTime: 'afterDatasetsDraw', label: { ...labelStyle, content: 'SWOTVAC' } }
-      annotations[`exam1_${y}`] = { type: 'box', xMin: ad.s1_exams_start, xMax: ad.s1_exams_end, yMin: 105, yMax: 115, backgroundColor: examColor, borderWidth: 0, drawTime: 'afterDatasetsDraw', label: { ...labelStyle, content: 'EXAMS' } }
-      annotations[`swot2_${y}`] = { type: 'box', xMin: ad.s2_swotvic_start, xMax: ad.s2_swotvic_end, yMin: 105, yMax: 115, backgroundColor: swotvacColor, borderWidth: 0, drawTime: 'afterDatasetsDraw', label: { ...labelStyle, content: 'SWOTVAC' } }
-      annotations[`exam2_${y}`] = { type: 'box', xMin: ad.s2_exams_start, xMax: ad.s2_exams_end, yMin: 105, yMax: 115, backgroundColor: examColor, borderWidth: 0, drawTime: 'afterDatasetsDraw', label: { ...labelStyle, content: 'EXAMS' } }
+      addAnnotation(`swot1_${y}`, ad.s1_swotvic_start, ad.s1_swotvic_end, swotvacColor, 'SWOTVAC')
+      addAnnotation(`exam1_${y}`, ad.s1_exams_start, ad.s1_exams_end, examColor, 'EXAMS')
+      addAnnotation(`swot2_${y}`, ad.s2_swotvic_start, ad.s2_swotvic_end, swotvacColor, 'SWOTVAC')
+      addAnnotation(`exam2_${y}`, ad.s2_exams_start, ad.s2_exams_end, examColor, 'EXAMS')
   })
   return annotations
 })
@@ -378,6 +428,7 @@ const timelineOptions = computed(() => {
       y: { 
         min: 0, 
         max: 120, 
+        stacked: true,
         ticks: { 
           color: textColour,
           callback: (val: any) => val <= 100 ? val : null

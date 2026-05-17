@@ -44,6 +44,12 @@ function evaluateProfile(user: any, t: typeof thresholds.value) {
   return 'Simulated (Requires full backend data)'
 }
 
+function updateThreshold(key: keyof typeof thresholds.value, v: number[] | undefined) {
+  if (v && v[0] !== undefined) {
+    thresholds.value[key] = v[0]
+  }
+}
+
 const simulatedProfiles = computed(() => {
   return Object.values(store.profilesByUser).map(user => {
     const original = user.profile_label
@@ -76,28 +82,28 @@ const simulatedProfiles = computed(() => {
               <div class="flex justify-between">
                 <label class="text-sm font-medium">Provisional: Coverage Conf < {{ thresholds.provisionalCoverageConf.toFixed(2) }}</label>
               </div>
-              <Slider v-model="thresholds.provisionalCoverageConf" :max="1" :step="0.05" />
+              <Slider :model-value="[thresholds.provisionalCoverageConf]" @update:model-value="v => updateThreshold('provisionalCoverageConf', v)" :max="1" :step="0.05" />
             </div>
 
             <div class="space-y-2">
               <div class="flex justify-between">
                 <label class="text-sm font-medium">Time-Specific: Exam Tail Ratio > {{ thresholds.timeSpecificExamRatio.toFixed(2) }}</label>
               </div>
-              <Slider v-model="thresholds.timeSpecificExamRatio" :max="5" :step="0.1" />
+              <Slider :model-value="[thresholds.timeSpecificExamRatio]" @update:model-value="v => updateThreshold('timeSpecificExamRatio', v)" :max="5" :step="0.1" />
             </div>
 
             <div class="space-y-2">
               <div class="flex justify-between">
                 <label class="text-sm font-medium">Processor: Heavy Credibility > {{ thresholds.processorHeavyCred.toFixed(2) }}</label>
               </div>
-              <Slider v-model="thresholds.processorHeavyCred" :max="1" :step="0.05" />
+              <Slider :model-value="[thresholds.processorHeavyCred]" @update:model-value="v => updateThreshold('processorHeavyCred', v)" :max="1" :step="0.05" />
             </div>
 
             <div class="space-y-2">
               <div class="flex justify-between">
                 <label class="text-sm font-medium">Uplifter: Upbeat Credibility > {{ thresholds.uplifterUpbeatCred.toFixed(2) }}</label>
               </div>
-              <Slider v-model="thresholds.uplifterUpbeatCred" :max="1" :step="0.05" />
+              <Slider :model-value="[thresholds.uplifterUpbeatCred]" @update:model-value="v => updateThreshold('uplifterUpbeatCred', v)" :max="1" :step="0.05" />
             </div>
           </div>
 

@@ -52,6 +52,11 @@ The logic is located in `src/stores/data.ts` in the `getAcademicDates(year)` fun
 
 ## 4. Advanced Metrics
 
+### Prominent Peak Detection (Emojis)
+An automated local maxima detection algorithm to identify significant emotional spikes in the temporal dashboard.
+- **Logic**: A peak is only identified if it represents at least 20% of the daily listening share.
+- **Proximity Filter**: To prevent visual clutter, peaks must be at least 7 days apart. The algorithm prioritizes the absolute highest peaks in any given timeframe and suppresses minor local maxima within a 7-day radius.
+
 ### Emotion Shift Detection (🔄)
 An automated detection of significant transitions in dominant emotional occupancy.
 - **Logic**: Triggered when a new emotion takes a lead of >10% over the previous dominant emotion, with a cooldown of at least 5 days to prevent noise.

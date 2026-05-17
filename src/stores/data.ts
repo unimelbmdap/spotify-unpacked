@@ -277,7 +277,7 @@ export const useDataStore = defineStore('data', () => {
         borderColor: base.cMap[em],
         backgroundColor: base.cMap[em],
         data: sig[em],
-        fill: false,
+        fill: true,
         tension: 0.2
       }))
     }
@@ -353,7 +353,7 @@ export const useDataStore = defineStore('data', () => {
     function calculateMetrics(column: 'emotion_500k' | 'emotion_278k') {
       const emotionMinutes: Record<string, number> = {};
       let totalMinutes = 0;
-      
+
       const timeOfDayEmotions: Record<'morning' | 'afternoon' | 'night', Record<string, number>> = {
         morning: {}, afternoon: {}, night: {}
       };
@@ -369,7 +369,7 @@ export const useDataStore = defineStore('data', () => {
 
         const minutes = ms / 60000;
         const em = h[column];
-        
+
         if (em && em !== 'niche_selection') {
           emotionMinutes[em] = (emotionMinutes[em] || 0) + minutes;
           totalMinutes += minutes;
@@ -378,7 +378,7 @@ export const useDataStore = defineStore('data', () => {
           let tod: 'morning' | 'afternoon' | 'night' = 'night';
           if (hour >= 6 && hour < 12) tod = 'morning';
           else if (hour >= 12 && hour < 18) tod = 'afternoon';
-          
+
           timeOfDayEmotions[tod][em] = (timeOfDayEmotions[tod][em] || 0) + minutes;
 
           const artist = h.master_metadata_album_artist_name;
@@ -414,7 +414,7 @@ export const useDataStore = defineStore('data', () => {
         }
       });
 
-      let topArtists: {name: string, minutes: number}[] = [];
+      let topArtists: { name: string, minutes: number }[] = [];
       if (topEmotionArtistsMap[topEmotion]) {
         topArtists = Object.entries(topEmotionArtistsMap[topEmotion]!)
           .sort((a, b) => b[1] - a[1])
@@ -422,14 +422,14 @@ export const useDataStore = defineStore('data', () => {
           .map(([name, minutes]) => ({ name, minutes }));
       }
 
-      const getDom = (tod: 'morning'|'afternoon'|'night') => {
+      const getDom = (tod: 'morning' | 'afternoon' | 'night') => {
         let m = 0; let dom = 'None';
         Object.entries(timeOfDayEmotions[tod]).forEach(([e, val]) => {
           if (val > m) { m = val; dom = e; }
         });
         return dom;
       };
-      
+
       let persona = "The Listener";
       const sadShare = (emotionShare['sad'] || 0) + (emotionShare['sadness'] || 0) + (emotionShare['fear'] || 0);
       const calmShare = (emotionShare['calm'] || 0);

@@ -32,7 +32,7 @@
 
       <!-- Current Card -->
       <transition name="fade" mode="out-in">
-        <GenericWrappedCard :card="cards[currentIndex]" :key="currentIndex" />
+        <GenericWrappedCard v-if="cards[currentIndex]" :card="cards[currentIndex]!" :key="currentIndex" />
       </transition>
 
       <!-- Navigation Overlays -->
