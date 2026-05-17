@@ -35,7 +35,7 @@ const peakAndShiftPlugin = {
     datasets.forEach((ds: any) => {
       for (let i = 0; i < labels.length; i++) {
         const val = ds.data[i]
-        if (val > 20) {
+        if (val > dataStore.config.peak_min_share) {
           let isMax = true
           for (let j = Math.max(0, i - 3); j <= Math.min(labels.length - 1, i + 3); j++) {
             if (i !== j && ds.data[j] > val) {
@@ -59,10 +59,10 @@ const peakAndShiftPlugin = {
     // Sort peaks by value descending to prioritize the highest peaks
     peaks.sort((a, b) => b.val - a.val)
     
-    // Filter peaks to ensure they are at least 7 days apart to avoid visual clutter
+    // Filter peaks to ensure they are at least X days apart to avoid visual clutter
     const filteredPeaks: typeof peaks = []
     for (const p of peaks) {
-      if (!filteredPeaks.some(fp => Math.abs(fp.idx - p.idx) < 7)) {
+      if (!filteredPeaks.some(fp => Math.abs(fp.idx - p.idx) < dataStore.config.peak_proximity_days)) {
         filteredPeaks.push(p)
       }
     }
@@ -102,14 +102,14 @@ const peakAndShiftPlugin = {
         }
       })
 
-      // Threshold: Only shift if lead > 10% and at least 5 indices since last shift
-      if (currentDominant && currentDominant !== lastDominant && i > 0 && maxVal > 20) {
+      // Threshold: Only shift if lead > threshold and at least X indices since last shift
+      if (currentDominant && currentDominant !== lastDominant && i > 0 && maxVal > dataStore.config.peak_min_share) {
         const secondBest = datasets.reduce((acc: number, ds: any) => {
           if (ds.label === currentDominant) return acc
           return Math.max(acc, ds.data[i] || 0)
         }, 0)
 
-        if (maxVal - secondBest > 10 && (lastShiftIdx === -1 || i - lastShiftIdx > 5)) { 
+        if (maxVal - secondBest > dataStore.config.shift_lead_threshold && (lastShiftIdx === -1 || i - lastShiftIdx > dataStore.config.shift_cooldown_days)) { 
           const dsIdx = chart.data.datasets.findIndex((ds:any) => ds.label === currentDominant)
           const meta = chart.getDatasetMeta(dsIdx)
           if (meta && meta.data[i]) {

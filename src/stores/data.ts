@@ -24,6 +24,20 @@ export const useDataStore = defineStore('data', () => {
   // Emotion Maps Cache
   const emotionMaps = ref<{ uri_map: Record<string, any>, name_map: Record<string, any> } | null>(null)
 
+  // Dynamic configuration loaded from backend Pydantic models
+  const config = ref<Record<string, any>>({
+    peak_min_share: 20.0,
+    peak_proximity_days: 7,
+    shift_lead_threshold: 10.0,
+    shift_cooldown_days: 5,
+    data_min_track_duration_ms: 30000,
+    stabiliser_entropy_max: 1.5,
+    processor_heavy_raw: 0.35,
+    calm_share_min: 0.30,
+    uplifter_upbeat_raw: 0.45,
+    explorer_entropy_min: 2.0
+  })
+
   const visStore = useVisualisationStore()
 
   /**
@@ -365,7 +379,7 @@ export const useDataStore = defineStore('data', () => {
 
       hist.forEach(h => {
         const ms = h.ms_played || 0;
-        if (ms < 30000) return; // skip < 30s
+        if (ms < config.value.data_min_track_duration_ms) return;
 
         const minutes = ms / 60000;
         const em = h[column];
@@ -436,13 +450,13 @@ export const useDataStore = defineStore('data', () => {
       const upbeatShare = (emotionShare['happy'] || 0) + (emotionShare['joy'] || 0) + (emotionShare['energetic'] || 0);
 
       const isEkman = column === 'emotion_500k';
-      if (entropy > (isEkman ? 2.2 : 1.7)) {
+      if (entropy > (isEkman ? config.value.explorer_entropy_min + 0.2 : config.value.explorer_entropy_min)) {
         persona = "Mood Explorer";
-      } else if (sadShare > 0.4) {
+      } else if (sadShare > config.value.processor_heavy_raw) {
         persona = "Emotional Deep-Dive";
-      } else if (calmShare > 0.3) {
+      } else if (calmShare > config.value.calm_share_min) {
         persona = "Calm & Steady";
-      } else if (upbeatShare > 0.4) {
+      } else if (upbeatShare > config.value.uplifter_upbeat_raw) {
         persona = "Upbeat Daily Driver";
       }
 
@@ -550,9 +564,22 @@ export const useDataStore = defineStore('data', () => {
     }
   }
 
+  async function ensureConfig() {
+    try {
+      const res = await fetch('/data/config.json')
+      if (res.ok) {
+        const loadedConfig = await res.json()
+        config.value = { ...config.value, ...loadedConfig }
+      }
+    } catch (e) {
+      console.warn("Failed to load config.json, using fallback defaults:", e)
+    }
+  }
+
   async function loadFiles(rawFiles: File[]) {
     isLoading.value = true
     await ensureEmotionMaps()
+    await ensureConfig()
     clear() // Clear existing first for fresh load
     await _parseAndAddFiles(rawFiles)
     isLoading.value = false
@@ -561,6 +588,7 @@ export const useDataStore = defineStore('data', () => {
   async function addFiles(rawFiles: File[]) {
     isLoading.value = true
     await ensureEmotionMaps()
+    await ensureConfig()
     await _parseAndAddFiles(rawFiles)
     isLoading.value = false
   }
@@ -575,6 +603,7 @@ export const useDataStore = defineStore('data', () => {
 
   return {
     files,
+    config,
     isLoading,
     fileCount,
     hasData,

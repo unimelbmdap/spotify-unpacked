@@ -19,7 +19,7 @@ Welcome to the documentation for the Spotify Unpacked research instrument. This 
 - [**DATA_PIPELINE.md**](file:///d:/Github/spotify-unpacked/docs/DATA_PIPELINE.md)
   - Processing raw Spotify JSON exports.
   - Imputation logic and coverage auditing.
-  - Python scripts overview (`explorations/`).
+  - Python scripts overview (`research_pipeline/scripts/`).
 
 ### Technical Implementation
 - [**COMPONENTS.md**](file:///d:/Github/spotify-unpacked/src/components/COMPONENTS.md)
@@ -31,7 +31,7 @@ Welcome to the documentation for the Spotify Unpacked research instrument. This 
 ---
 
 ## Quick Start for Researchers
-1. **Data Prep**: Use the Python scripts in `explorations/` to generate the `audit_summary_{id}.json` and `emotion_map.json`.
-2. **Setup**: Place `emotion_map.json` in the `public/` folder.
+1. **Data Prep**: Use the Python scripts in `research_pipeline/scripts/` to generate the `audit_summary_{id}.json`, `emotion_map.json`, and run `generate_config.py` for thresholds.
+2. **Setup**: Ensure `emotion_map.json` and `config.json` are placed in the `public/data/` folder.
 3. **Run**: `npm run dev` to launch the dashboard.
 4. **Analysis**: Upload your streaming history files to see the temporal trends and behavioral profiles.

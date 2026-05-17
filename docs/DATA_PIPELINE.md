@@ -26,6 +26,10 @@ The instrument uses a dedicated research pipeline to transform raw data into beh
 - **Purpose**: Calculates cohort-wide quartiles to calibrate the "Low/Medium/High" bands.
 - **Output**: Automatically updates the pipeline `.env` file with new threshold values.
 
+### `scripts/generate_config.py`
+- **Purpose**: Exports backend Pydantic models (`.env` thresholds) for frontend consumption.
+- **Output**: Generates `public/data/config.json` containing visual and emotional logic thresholds.
+
 ### `scripts/emotion_profiles.py`
 - **Purpose**: Calculates the **Emotion Regulation Profile** (e.g., The Processor, The Uplifter).
 - **Output**: Automatically deploys `student_profiles.json` to `public/data/`.

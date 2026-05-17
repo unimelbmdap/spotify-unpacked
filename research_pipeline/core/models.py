@@ -55,9 +55,25 @@ class EmotionProfileSettings(BaseSettings):
         extra="ignore"
     )
 
+class VisualSettings(BaseSettings):
+    """Configuration for frontend visualization and analysis thresholds."""
+    peak_min_share: float = 20.0
+    peak_proximity_days: int = 7
+    shift_lead_threshold: float = 10.0
+    shift_cooldown_days: int = 5
+    min_track_duration_ms: int = 30000
+
+    model_config = SettingsConfigDict(
+        env_prefix="VISUAL_", 
+        env_file=os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"), 
+        env_file_encoding="utf-8", 
+        extra="ignore"
+    )
+
 # Instantiate configured instances
 behavior_settings = BehavioralBandSettings()
 emotion_settings = EmotionProfileSettings()
+visual_settings = VisualSettings()
 
 class BandedBehavioralProfile(BaseModel):
     """Schema for the Banded Behavioral Profile exported to the frontend."""

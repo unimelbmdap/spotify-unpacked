@@ -1,0 +1,12 @@
+{
+    "peak_min_share": 20.0,
+    "peak_proximity_days": 7,
+    "shift_lead_threshold": 10.0,
+    "shift_cooldown_days": 5,
+    "data_min_track_duration_ms": 30000,
+    "stabiliser_entropy_max": 1.5,
+    "processor_heavy_raw": 0.35,
+    "calm_share_min": 0.3,
+    "uplifter_upbeat_raw": 0.45,
+    "explorer_entropy_min": 2.0
+}
