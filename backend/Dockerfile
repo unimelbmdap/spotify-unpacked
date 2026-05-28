@@ -30,9 +30,11 @@ FROM python:3.12-slim-bookworm AS runtime
 
 # OpenJDK is needed only when MEDIAFLUX_CLIENT=aterm. We install it
 # unconditionally so production and dev images are byte-identical (~200 MB).
+# OpenJDK 17 is the most recent JRE in Debian Bookworm's default repo;
+# aterm needs Java 8+ so this is plenty.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        openjdk-21-jre-headless ca-certificates curl \
+        openjdk-17-jre-headless ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Optional: pin a known aterm.jar download. Replace ATERM_DOWNLOAD_URL with the
