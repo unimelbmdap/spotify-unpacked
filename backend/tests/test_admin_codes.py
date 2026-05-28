@@ -1,35 +1,5 @@
 import base64
 
-import pytest
-from fastapi.testclient import TestClient
-
-from app.deps import get_settings
-from app.main import create_app
-
-
-@pytest.fixture
-def admin_headers():
-    creds = base64.b64encode(b"admin:hunter2hunter").decode()
-    return {
-        "Authorization": f"Basic {creds}",
-        "X-Admin-Request": "1",
-    }
-
-
-@pytest.fixture
-def client(monkeypatch, tmp_path):
-    monkeypatch.setenv("IP_HASH_SALT", "x" * 64)
-    monkeypatch.setenv("ADMIN_USERNAME", "admin")
-    monkeypatch.setenv("ADMIN_PASSWORD", "hunter2hunter")
-    monkeypatch.setenv("DATABASE_URL", f"sqlite+aiosqlite:///{tmp_path/'t.db'}")
-    get_settings.cache_clear()
-    from app import deps
-    deps._engine_cache.clear()
-
-    app = create_app()
-    with TestClient(app) as c:
-        yield c
-
 
 def test_post_codes_creates_them(client, admin_headers):
     r = client.post(
