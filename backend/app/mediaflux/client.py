@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from itertools import count
 from pathlib import Path
 
+from anyio import fail_after
 from anyio import run_process as anyio_run_process
 
 from app.mediaflux.exceptions import (
@@ -108,9 +109,15 @@ class AtermMediafluxClient(MediafluxClient):
         cmd = self._base_cmd() + args
         log_cmd = " ".join(c if "--token=" not in c else "--token=***" for c in cmd)
         log.info("running aterm: %s", log_cmd)
+        # anyio.run_process has no `timeout` kwarg; wrap in fail_after instead.
         try:
-            result = await anyio_run_process(cmd, timeout=self.timeout_seconds, check=False)
-        except Exception as exc:  # network failure inside anyio
+            with fail_after(self.timeout_seconds):
+                result = await anyio_run_process(cmd, check=False)
+        except TimeoutError as exc:
+            raise MediafluxTransportError(
+                f"aterm timed out after {self.timeout_seconds}s"
+            ) from exc
+        except Exception as exc:  # network / spawn failure inside anyio
             raise MediafluxTransportError(str(exc)) from exc
         if result.returncode != 0:
             stderr = (result.stderr or b"").decode("utf-8", errors="replace")
