@@ -46,12 +46,37 @@ async def test_create_asset_invokes_aterm_and_parses_id(jar, tmp_path, monkeypat
     monkeypatch.setattr("app.mediaflux.client.anyio_run_process", fake_run)
 
     client = AtermMediafluxClient(jar_path=jar, host="h", port=443, token="t")
-    asset_id = await client.create_asset(f, namespace="/ns", name="x.json", metadata=_md())
+    asset_id = await client.create_asset(
+        f, namespace="/ns", name="x.json", metadata=_md(), collection_id=99
+    )
 
     assert asset_id == "12345"
-    assert "asset.create" in " ".join(captured["cmd"])
-    assert ":namespace /ns" in " ".join(captured["cmd"])
-    assert str(f) in " ".join(captured["cmd"])
+    joined = " ".join(captured["cmd"])
+    assert "asset.create" in joined
+    assert ":namespace /ns" in joined
+    assert ":name x.json" in joined
+    assert ":description donor_code=abc" in joined  # render_description output
+    assert ":collection 99" in joined
+    assert str(f) in joined
+    # The legacy :meta block must NOT be sent (server may not have the schema).
+    assert ":meta" not in joined
+
+
+@pytest.mark.asyncio
+async def test_create_asset_omits_collection_when_not_set(jar, tmp_path, monkeypatch):
+    """When collection_id is None, no :collection arg is added."""
+    f = tmp_path / "x.json"
+    f.write_bytes(b"{}")
+    captured: dict = {}
+
+    async def fake_run(cmd, **kw):
+        captured["cmd"] = cmd
+        return SimpleNamespace(returncode=0, stdout=b":id 7\n", stderr=b"")
+
+    monkeypatch.setattr("app.mediaflux.client.anyio_run_process", fake_run)
+    client = AtermMediafluxClient(jar_path=jar, host="h", port=443, token="t")
+    await client.create_asset(f, namespace="/ns", name="x.json", metadata=_md())
+    assert ":collection" not in " ".join(captured["cmd"])
 
 
 @pytest.mark.asyncio

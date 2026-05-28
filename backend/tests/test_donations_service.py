@@ -81,7 +81,7 @@ async def test_perform_donation_happy_path(session, tmp_path):
     result = await perform_donation(
         session,
         mediaflux=client,
-        namespace_root="/projects/test/donations",
+        namespace="/projects", collection_id=42,
         code=c.code,
         consent_version="v1.0",
         consent_accepted_at=datetime.now(timezone.utc),
@@ -102,6 +102,15 @@ async def test_perform_donation_happy_path(session, tmp_path):
     assert all(r.status == "ok" for r in result.results)
     assert result.donation_id == donation.id
 
+    # Each create_asset call goes to the project namespace with a
+    # disambiguator-prefixed asset name and the donations collection_id.
+    assert [call["namespace"] for call in client.create_calls] == ["/projects", "/projects"]
+    assert [call["collection_id"] for call in client.create_calls] == [42, 42]
+    names = [call["name"] for call in client.create_calls]
+    assert all(n.startswith(c.code + "__") and n.endswith(".json") for n in names)
+    assert any(n.endswith("a.json") for n in names)
+    assert any(n.endswith("b.json") for n in names)
+
 
 @pytest.mark.asyncio
 async def test_perform_donation_rolls_back_on_partial_failure(session, tmp_path):
@@ -116,7 +125,7 @@ async def test_perform_donation_rolls_back_on_partial_failure(session, tmp_path)
         await perform_donation(
             session,
             mediaflux=client,
-            namespace_root="/projects/test/donations",
+            namespace="/projects", collection_id=42,
             code=c.code,
             consent_version="v1.0",
             consent_accepted_at=datetime.now(timezone.utc),
@@ -144,7 +153,7 @@ async def test_perform_donation_raises_when_code_unavailable(session, tmp_path):
         await perform_donation(
             session,
             mediaflux=StubMediafluxClient(),
-            namespace_root="/projects/test/donations",
+            namespace="/projects", collection_id=42,
             code="nope",
             consent_version="v1.0",
             consent_accepted_at=datetime.now(timezone.utc),

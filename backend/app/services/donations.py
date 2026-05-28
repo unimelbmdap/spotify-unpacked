@@ -68,29 +68,39 @@ def _safe_code_for_path(code: str) -> str:
     return _SAFE_CODE.sub("_", code)
 
 
-def _build_namespace(root: str, code: str, ts: datetime, donation_id: int) -> str:
+def _build_asset_name(code: str, ts: datetime, donation_id: int, filename: str) -> str:
+    """Compose a unique, prefix-sortable asset name for one donated file.
+
+    Every file in a multi-file donation shares the `<code>__<ts>__<id>__`
+    prefix so they sort together in Asset Finder. `__` as the separator
+    keeps individual fields easy to split out later.
+    """
     stamp = ts.strftime("%Y%m%d-%H%M%S")
-    return f"{root.rstrip('/')}/{_safe_code_for_path(code)}_{stamp}_{donation_id}"
+    return f"{_safe_code_for_path(code)}__{stamp}__{donation_id}__{filename}"
 
 
 async def perform_donation(
     session: AsyncSession,
     *,
     mediaflux: MediafluxClient,
-    namespace_root: str,
+    namespace: str,
     code: str,
     consent_version: str,
     consent_accepted_at: datetime,
     client_ip_hash: str,
     app_version: str,
     files: list[UploadFile],
+    collection_id: int | None = None,
 ) -> DonationResponse:
     """Execute a single donation transaction with all-or-fail semantics.
 
     Steps:
       1. Atomic reservation of code use (rollback decrements on failure).
       2. Insert pending Donation row to obtain donation_id.
-      3. Upload each file via mediaflux.create_asset.
+      3. Upload each file via mediaflux.create_asset — assets are placed in
+         `namespace` with a disambiguator-prefixed asset name, and added as
+         members of `collection_id` if set (so they group under a
+         "donations" sub-collection in Asset Finder).
       4. On any failure: destroy all created assets, mark donation failed,
          release the reservation. Re-raise the original exception.
       5. On full success: mark donation complete with asset ids, return response.
@@ -110,7 +120,6 @@ async def perform_donation(
     await session.flush()  # populate donation.id without committing yet
     assert donation.id is not None
 
-    namespace = _build_namespace(namespace_root, code, submitted_at, donation.id)
     created_ids: list[str] = []
     results: list[DonateResult] = []
     try:
@@ -124,8 +133,13 @@ async def perform_donation(
                 source_filename=f.filename,
                 app_version=app_version,
             )
+            asset_name = _build_asset_name(code, submitted_at, donation.id, f.filename)
             asset_id = await mediaflux.create_asset(
-                f.path, namespace=namespace, name=f.filename, metadata=md
+                f.path,
+                namespace=namespace,
+                name=asset_name,
+                metadata=md,
+                collection_id=collection_id,
             )
             created_ids.append(asset_id)
             results.append(DonateResult(filename=f.filename, asset_id=asset_id, status="ok"))

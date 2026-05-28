@@ -32,7 +32,16 @@ class Settings(BaseSettings):
 
     # Mediaflux
     mediaflux_client: Literal["stub", "aterm"] = "stub"
-    mediaflux_namespace: str = "/projects/proj-mdap-spotify-test/donations"
+    # Namespace assets are created in. The MDAP project is a *collection asset*
+    # rather than a writable namespace, so this is normally the project's
+    # parent namespace (e.g. "/projects") and grouping happens via
+    # `mediaflux_collection_id` instead.
+    mediaflux_namespace: str = "/projects"
+    # Optional asset id of a Mediaflux collection. When set, every created
+    # asset is added as a member of that collection — this is how we group
+    # donations under a "donations" folder in Asset Finder without needing
+    # to create sub-namespaces (which require server-admin privileges).
+    mediaflux_collection_id: int | None = None
     mediaflux_host: str = "mediaflux.researchsoftware.unimelb.edu.au"
     mediaflux_port: int = 443
     mediaflux_token: str = ""

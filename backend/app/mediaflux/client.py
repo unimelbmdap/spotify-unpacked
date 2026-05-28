@@ -28,8 +28,16 @@ class MediafluxClient(ABC):
         namespace: str,
         name: str,
         metadata: DonorMetadata,
+        collection_id: int | None = None,
     ) -> str:
-        """Create an asset, return its Mediaflux id."""
+        """Create an asset, return its Mediaflux id.
+
+        If `collection_id` is provided, the new asset is added as a member
+        of that Mediaflux collection (in addition to living in the given
+        namespace). This is how donations end up grouped under the MDAP
+        project's "donations" sub-collection without needing per-donation
+        sub-namespaces.
+        """
 
     @abstractmethod
     async def destroy_asset(self, asset_id: str) -> None:
@@ -43,6 +51,8 @@ class StubMediafluxClient(MediafluxClient):
         self._next_id = count(start=1000)
         self.created: list[str] = []
         self.destroyed: list[str] = []
+        # Per-call audit logs the consumer-facing tests can assert on.
+        self.create_calls: list[dict] = []
         self._calls = 0
         self._fail_after = fail_after
 
@@ -53,6 +63,7 @@ class StubMediafluxClient(MediafluxClient):
         namespace: str,
         name: str,
         metadata: DonorMetadata,
+        collection_id: int | None = None,
     ) -> str:
         self._calls += 1
         if self._fail_after is not None and self._calls > self._fail_after:
@@ -61,6 +72,14 @@ class StubMediafluxClient(MediafluxClient):
             raise MediafluxAssetCreateError(f"missing file: {file_path}")
         asset_id = str(next(self._next_id))
         self.created.append(asset_id)
+        self.create_calls.append(
+            {
+                "namespace": namespace,
+                "name": name,
+                "collection_id": collection_id,
+                "metadata": metadata,
+            }
+        )
         return asset_id
 
     async def destroy_asset(self, asset_id: str) -> None:
@@ -135,19 +154,26 @@ class AtermMediafluxClient(MediafluxClient):
         namespace: str,
         name: str,
         metadata,
+        collection_id: int | None = None,
     ) -> str:
-        from app.mediaflux.metadata import render_meta_argument
+        from app.mediaflux.metadata import render_description
 
-        meta_arg = render_meta_argument(metadata)
+        # We store donor metadata in the asset description as
+        # `key=value;key=value` rather than as a typed metadata document.
+        # The proper-doc-type path needs a server-admin-registered
+        # `donation:donor` schema; until that's available this works
+        # without elevated permissions and stays human-readable in
+        # Asset Finder. See render_description() for the encoding.
+        description = render_description(metadata)
         args = [
             "asset.create",
             ":namespace", namespace,
             ":name", name,
+            ":description", description,
             ":in", f"file:{file_path}",
         ]
-        # The :meta < … > argument is multi-token; pass it pre-tokenised by
-        # splitting on whitespace. _escape() in metadata.py prevents injection.
-        args.extend(meta_arg.split())
+        if collection_id is not None:
+            args.extend([":collection", str(collection_id)])
         out = await self._run(args)
         m = _ASSET_ID_RE.search(out)
         if not m:

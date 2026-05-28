@@ -121,7 +121,8 @@ async def donate(
             response = await perform_donation(
                 db,
                 mediaflux=mediaflux,
-                namespace_root=settings.mediaflux_namespace,
+                namespace=settings.mediaflux_namespace,
+                collection_id=settings.mediaflux_collection_id,
                 code=participant_code,
                 consent_version=consent_version,
                 consent_accepted_at=consent_accepted_at,
