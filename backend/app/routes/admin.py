@@ -87,6 +87,9 @@ async def list_donations(
             submitted_at=d.submitted_at,
             completed_at=d.completed_at,
             consent_version=d.consent_version,
+            storage_path=d.storage_path,
+            synced_at=d.synced_at,
+            mediaflux_asset_id=d.mediaflux_asset_id,
             asset_ids=json.loads(d.asset_ids_json) if d.asset_ids_json else [],
         )
         for d in rows

@@ -12,11 +12,8 @@ from app.consent import load_consent_text
 from app.deps import (
     get_client_ip_hash,
     get_db,
-    get_mediaflux_client,
     get_settings,
 )
-from app.mediaflux.client import MediafluxClient
-from app.mediaflux.exceptions import MediafluxError
 from app.ratelimit import donate_rate_limit
 from app.schemas import DonationResponse
 from app.services import audit
@@ -54,7 +51,6 @@ async def donate(
     settings: Settings = Depends(get_settings),
     client_ip_hash: str = Depends(get_client_ip_hash),
     db: AsyncSession = Depends(get_db),
-    mediaflux: MediafluxClient = Depends(get_mediaflux_client),
 ):
     # 1. Envelope checks (before reading file bytes).
     if not _CODE_RE.fullmatch(participant_code):
@@ -128,13 +124,13 @@ async def donate(
         )
         original_filenames = [name for name, _, _ in streamed]
 
-        # 3. Reserve + upload + commit/rollback (handled in services.donations).
+        # 3. Reserve + store bundle on disk + record (services.donations).
+        # Mediaflux sync happens later via a separate offline job — keeps
+        # the request path independent of Mediaflux availability.
         try:
             response = await perform_donation(
                 db,
-                mediaflux=mediaflux,
-                namespace=settings.mediaflux_namespace,
-                collection_id=settings.mediaflux_collection_id,
+                storage_dir=settings.donations_storage_dir,
                 code=participant_code,
                 consent_version=consent_version,
                 consent_accepted_at=consent_accepted_at,
@@ -153,7 +149,8 @@ async def donate(
             raise HTTPException(
                 status_code=401, detail="Participant code is invalid or already used"
             )
-        except MediafluxError as exc:
+        except OSError as exc:
+            # Disk full, permission denied on storage_dir, etc.
             await audit.record_event(
                 db, kind="donate_failed", code=participant_code,
                 client_ip_hash=client_ip_hash,
@@ -162,7 +159,7 @@ async def donate(
             await db.commit()
             raise HTTPException(
                 status_code=502,
-                detail="Upload couldn't complete; your code has not been used. Please try again.",
+                detail="Could not store donation; your code has not been used. Please try again.",
             )
 
         await audit.record_event(

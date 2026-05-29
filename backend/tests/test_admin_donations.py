@@ -21,11 +21,14 @@ def _seed_donation(client, admin_headers) -> dict:
             s.add(
                 Donation(
                     code=code["code"],
-                    status=DonationStatus.complete,
+                    status=DonationStatus.stored,
                     submitted_at=datetime.now(timezone.utc),
                     completed_at=datetime.now(timezone.utc),
                     client_ip_hash="h",
                     consent_version="v1.0",
+                    storage_path="/app/data/donations/donation_test__T__1.zip",
+                    # Legacy field — kept on the model for back-compat; still
+                    # exposed in the listing as `asset_ids`.
                     asset_ids_json=json.dumps(["A1", "A2"]),
                 )
             )
@@ -48,7 +51,11 @@ def test_list_donations_returns_inserted(client, admin_headers):
     rows = r.json()
     assert len(rows) == 1
     assert rows[0]["code"] == code["code"]
-    assert rows[0]["asset_ids"] == ["A1", "A2"]
+    assert rows[0]["status"] == "stored"
+    assert rows[0]["storage_path"].endswith(".zip")
+    assert rows[0]["synced_at"] is None
+    assert rows[0]["mediaflux_asset_id"] is None
+    assert rows[0]["asset_ids"] == ["A1", "A2"]  # legacy field still surfaced
 
 
 def test_list_donations_filter_by_code(client, admin_headers):

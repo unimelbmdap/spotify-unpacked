@@ -3,7 +3,7 @@ import io
 import pytest
 from fastapi.testclient import TestClient
 
-from app.deps import get_settings, reset_mediaflux_client
+from app.deps import get_settings
 from app.main import create_app
 
 
@@ -23,7 +23,7 @@ def client(monkeypatch, tmp_path):
     monkeypatch.setenv("DATABASE_URL", f"sqlite+aiosqlite:///{tmp_path/'t.db'}")
     monkeypatch.setenv("CONSENT_DIR", str(tmp_path))
     monkeypatch.setenv("CONSENT_VERSION", "v1.0")
-    monkeypatch.setenv("MEDIAFLUX_CLIENT", "stub")
+    monkeypatch.setenv("DONATIONS_STORAGE_DIR", str(tmp_path / "donations"))
     monkeypatch.setenv("MAX_BYTES_PER_FILE", str(1024))
     monkeypatch.setenv("MAX_BYTES_PER_REQUEST", str(2048))
     monkeypatch.setenv("MAX_FILES_PER_REQUEST", str(3))
@@ -31,7 +31,6 @@ def client(monkeypatch, tmp_path):
     get_settings.cache_clear()
     from app import deps
     deps._engine_cache.clear()
-    reset_mediaflux_client()
 
     app = create_app()
     with TestClient(app) as c:
@@ -131,20 +130,28 @@ def test_code_already_used_401_on_retry(client, admin_headers):
     assert r2.status_code == 401
 
 
-def test_mediaflux_failure_returns_502_and_does_not_burn_use(client, admin_headers):
-    """Inject a Mediaflux failure on the (single) bundle upload.
-
-    With the bundle-per-donation design there is only one create_asset call
-    per donation, so we use fail_after=0 to make that call fail. The
-    contract being verified is: server returns 502, code is not burned,
-    retry with the same code succeeds.
+def test_storage_failure_returns_502_and_does_not_burn_use(
+    client, admin_headers, monkeypatch, tmp_path
+):
+    """If the storage layer fails (disk full / perm denied / similar),
+    the donor sees 502 with a "code not used" payload, and the code
+    can be reused on a successful retry.
     """
-    from app.mediaflux.client import StubMediafluxClient
-
     code = _new_code(client, admin_headers, max_uses=1)
-    # Replace the cached client with one that fails on the first call.
-    from app import deps
-    deps._mediaflux_client = StubMediafluxClient(fail_after=0)
+
+    # Make store_bundle blow up on first call.
+    from app.services import donations as donations_svc
+
+    real_store = donations_svc.store_bundle
+    calls = {"n": 0}
+
+    def boom(**kw):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise OSError("No space left on device (simulated)")
+        return real_store(**kw)
+
+    monkeypatch.setattr(donations_svc, "store_bundle", boom)
 
     r = client.post(
         "/api/donate",
@@ -152,10 +159,9 @@ def test_mediaflux_failure_returns_502_and_does_not_burn_use(client, admin_heade
     )
     assert r.status_code == 502, r.text
 
-    # Reset to a working client and retry — code use was not burned.
-    deps._mediaflux_client = StubMediafluxClient()
+    # Second attempt with the same code succeeds (use wasn't burned).
     r2 = client.post(
         "/api/donate",
         files=_form(code, files=[("a.json", b'{}'), ("b.json", b'{}')]),
     )
-    assert r2.status_code == 201
+    assert r2.status_code == 201, r2.text

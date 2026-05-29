@@ -18,3 +18,9 @@ services:
       - ${ATERM_JAR_HOST_PATH:-~/.local/mflux/aterm.jar}:/opt/mediaflux/aterm.jar:ro
     environment:
       DATABASE_URL: "sqlite+aiosqlite:////app/data/donations.db"
+      # Bundles land here inside the container. The path is on the
+      # ./data:/app/data mount above, so the host sees them at
+      # backend/data/donations/. The future Mediaflux sync script reads
+      # bundles from the host side — it doesn't have to be in this
+      # container.
+      DONATIONS_STORAGE_DIR: "/app/data/donations"

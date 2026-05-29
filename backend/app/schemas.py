@@ -68,6 +68,10 @@ class DonationListItem(BaseModel):
     submitted_at: datetime
     completed_at: datetime | None
     consent_version: str
+    storage_path: str | None
+    synced_at: datetime | None
+    mediaflux_asset_id: str | None
+    # Legacy: assets ids from the pre-decoupling design; nullable for back-compat.
     asset_ids: list[str]
 
 

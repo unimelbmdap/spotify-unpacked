@@ -11,7 +11,8 @@ class CodeStatus(str, Enum):
 
 class DonationStatus(str, Enum):
     pending = "pending"
-    complete = "complete"
+    stored = "stored"      # bundle written to local disk, awaiting sync
+    complete = "complete"  # synced to Mediaflux (set by the future sync job)
     failed = "failed"
 
 
@@ -36,6 +37,15 @@ class Donation(SQLModel, table=True):
     completed_at: datetime | None = Field(default=None)
     client_ip_hash: str
     consent_version: str
+    # Host path of the stored bundle .zip (set when status moves to `stored`).
+    storage_path: str | None = Field(default=None)
+    # When the bundle was successfully pushed to Mediaflux by the sync job,
+    # and the resulting asset id. Both stay NULL until a sync run handles
+    # this donation.
+    synced_at: datetime | None = Field(default=None)
+    mediaflux_asset_id: str | None = Field(default=None)
+    # Legacy column from the pre-decoupling design — keep nullable for
+    # backward-compat with rows written by older builds.
     asset_ids_json: str | None = Field(default=None)
 
 

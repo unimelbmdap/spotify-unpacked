@@ -30,6 +30,14 @@ class Settings(BaseSettings):
     consent_version: str = "v1.0"
     consent_dir: Path = Path("./consent")
 
+    # Local storage for donation bundles.
+    # Each donation lands here as `donation_<code>__<ts>__<id>.zip` plus a
+    # sibling `.json` sidecar with the donor metadata. The directory is
+    # mounted onto the host via docker-compose so the eventual sync job
+    # (rclone / aterm script / whatever) can read it without going through
+    # the FastAPI process.
+    donations_storage_dir: Path = Path("./data/donations")
+
     # Mediaflux
     mediaflux_client: Literal["stub", "aterm"] = "stub"
     # Namespace assets are created in. The MDAP project is a *collection asset*
