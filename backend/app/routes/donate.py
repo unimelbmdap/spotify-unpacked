@@ -1,4 +1,5 @@
 import re
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -85,7 +86,7 @@ async def donate(
     consent_accepted_at = datetime.now(timezone.utc)
 
     # 2. Stream files to disk with per-file/per-request size enforcement.
-    uploads: list[ServiceUploadFile] = []
+    streamed: list[tuple[str, Path, int]] = []  # (sanitised_name, path, size)
     total_bytes = 0
     chunk_size = 1024 * 1024
     with TemporaryDirectory(prefix="donate-") as tmpdir:
@@ -112,9 +113,20 @@ async def donate(
                             detail="Request exceeds total size limit",
                         )
                     out.write(chunk)
-            uploads.append(
-                ServiceUploadFile(filename=name, path=target, size=written)
-            )
+            streamed.append((name, target, written))
+
+        # 2b. Zip the streamed files into a single bundle so each donation
+        # is one Mediaflux asset (one row in Asset Finder, atomic rollback).
+        bundle_path = tmp_root / "bundle.zip"
+        with zipfile.ZipFile(bundle_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            for name, src, _size in streamed:
+                zf.write(src, arcname=name)
+        bundle = ServiceUploadFile(
+            filename="bundle.zip",
+            path=bundle_path,
+            size=bundle_path.stat().st_size,
+        )
+        original_filenames = [name for name, _, _ in streamed]
 
         # 3. Reserve + upload + commit/rollback (handled in services.donations).
         try:
@@ -128,7 +140,8 @@ async def donate(
                 consent_accepted_at=consent_accepted_at,
                 client_ip_hash=client_ip_hash,
                 app_version=app_version,
-                files=uploads,
+                bundle=bundle,
+                original_filenames=original_filenames,
             )
         except CodeUnavailable:
             await audit.record_event(
@@ -155,7 +168,7 @@ async def donate(
         await audit.record_event(
             db, kind="donate_ok", code=participant_code,
             client_ip_hash=client_ip_hash,
-            detail={"donation_id": response.donation_id, "files": len(uploads)},
+            detail={"donation_id": response.donation_id, "files": len(original_filenames)},
         )
         await db.commit()
         return response

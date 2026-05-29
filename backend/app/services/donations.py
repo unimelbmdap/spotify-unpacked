@@ -68,15 +68,14 @@ def _safe_code_for_path(code: str) -> str:
     return _SAFE_CODE.sub("_", code)
 
 
-def _build_asset_name(code: str, ts: datetime, donation_id: int, filename: str) -> str:
-    """Compose a unique, prefix-sortable asset name for one donated file.
+def _build_bundle_name(code: str, ts: datetime, donation_id: int) -> str:
+    """Compose a unique, prefix-sortable asset name for one donation bundle.
 
-    Every file in a multi-file donation shares the `<code>__<ts>__<id>__`
-    prefix so they sort together in Asset Finder. `__` as the separator
-    keeps individual fields easy to split out later.
+    Format: `<code>__<YYYYMMDD-HHMMSS>__<donation_id>.zip` — sorts
+    chronologically by donor and is trivially parseable later.
     """
     stamp = ts.strftime("%Y%m%d-%H%M%S")
-    return f"{_safe_code_for_path(code)}__{stamp}__{donation_id}__{filename}"
+    return f"{_safe_code_for_path(code)}__{stamp}__{donation_id}.zip"
 
 
 async def perform_donation(
@@ -89,21 +88,24 @@ async def perform_donation(
     consent_accepted_at: datetime,
     client_ip_hash: str,
     app_version: str,
-    files: list[UploadFile],
+    bundle: UploadFile,
+    original_filenames: list[str],
     collection_id: int | None = None,
 ) -> DonationResponse:
     """Execute a single donation transaction with all-or-fail semantics.
 
+    The caller passes ONE bundle file (the route layer zips the donor's
+    files together so each donation becomes a single Mediaflux asset).
+
     Steps:
       1. Atomic reservation of code use (rollback decrements on failure).
       2. Insert pending Donation row to obtain donation_id.
-      3. Upload each file via mediaflux.create_asset — assets are placed in
-         `namespace` with a disambiguator-prefixed asset name, and added as
-         members of `collection_id` if set (so they group under a
-         "donations" sub-collection in Asset Finder).
-      4. On any failure: destroy all created assets, mark donation failed,
+      3. Upload the bundle via mediaflux.create_asset — the asset is placed
+         in `namespace` with a disambiguator-prefixed name and added as
+         a member of `collection_id` if set.
+      4. On failure: destroy the asset (best-effort), mark donation failed,
          release the reservation. Re-raise the original exception.
-      5. On full success: mark donation complete with asset ids, return response.
+      5. On success: mark donation complete with the asset id, return.
     """
     if not await reserve_code(session, code=code):
         raise CodeUnavailable(code)
@@ -120,29 +122,30 @@ async def perform_donation(
     await session.flush()  # populate donation.id without committing yet
     assert donation.id is not None
 
+    asset_name = _build_bundle_name(code, submitted_at, donation.id)
+    md = DonorMetadata(
+        donor_code=code,
+        consent_version=consent_version,
+        consent_accepted_at=consent_accepted_at,
+        submitted_at=submitted_at,
+        client_ip_hash=client_ip_hash,
+        source_filename=",".join(original_filenames),
+        app_version=app_version,
+    )
     created_ids: list[str] = []
-    results: list[DonateResult] = []
     try:
-        for f in files:
-            md = DonorMetadata(
-                donor_code=code,
-                consent_version=consent_version,
-                consent_accepted_at=consent_accepted_at,
-                submitted_at=submitted_at,
-                client_ip_hash=client_ip_hash,
-                source_filename=f.filename,
-                app_version=app_version,
-            )
-            asset_name = _build_asset_name(code, submitted_at, donation.id, f.filename)
-            asset_id = await mediaflux.create_asset(
-                f.path,
-                namespace=namespace,
-                name=asset_name,
-                metadata=md,
-                collection_id=collection_id,
-            )
-            created_ids.append(asset_id)
-            results.append(DonateResult(filename=f.filename, asset_id=asset_id, status="ok"))
+        asset_id = await mediaflux.create_asset(
+            bundle.path,
+            namespace=namespace,
+            name=asset_name,
+            metadata=md,
+            collection_id=collection_id,
+        )
+        created_ids.append(asset_id)
+        results = [
+            DonateResult(filename=name, asset_id=asset_id, status="ok")
+            for name in original_filenames
+        ]
     except Exception:
         # Rollback: destroy any partial assets, release the reservation, mark failed.
         for asset_id in created_ids:

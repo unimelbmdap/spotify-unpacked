@@ -27,13 +27,13 @@ async def session(tmp_path):
     await engine.dispose()
 
 
-def _files(tmp_path: Path, names: list[str]) -> list[UploadFile]:
-    out = []
-    for n in names:
-        p = tmp_path / n
-        p.write_text("{}", encoding="utf-8")
-        out.append(UploadFile(filename=n, path=p, size=p.stat().st_size))
-    return out
+def _bundle(tmp_path: Path, names: list[str]) -> tuple[UploadFile, list[str]]:
+    """Build a fake zip bundle on disk plus a list of original filenames."""
+    p = tmp_path / "bundle.zip"
+    # The donation service doesn't inspect zip contents — any non-empty
+    # file passes the StubMediafluxClient's exists check.
+    p.write_bytes(b"PK\x03\x04")  # zip magic prefix; one byte would also work
+    return UploadFile(filename="bundle.zip", path=p, size=p.stat().st_size), names
 
 
 @pytest.mark.asyncio
@@ -76,7 +76,7 @@ async def test_perform_donation_happy_path(session, tmp_path):
     await session.commit()
 
     client = StubMediafluxClient()
-    files = _files(tmp_path, ["a.json", "b.json"])
+    bundle, names = _bundle(tmp_path, ["a.json", "b.json"])
 
     result = await perform_donation(
         session,
@@ -87,7 +87,8 @@ async def test_perform_donation_happy_path(session, tmp_path):
         consent_accepted_at=datetime.now(timezone.utc),
         client_ip_hash="h",
         app_version="dev",
-        files=files,
+        bundle=bundle,
+        original_filenames=names,
     )
 
     await session.commit()
@@ -97,19 +98,22 @@ async def test_perform_donation_happy_path(session, tmp_path):
     assert refreshed.uses == 1
     assert donation.status == DonationStatus.complete
     assert donation.completed_at is not None
-    assert len(client.created) == 2
+    # One bundle, one asset.
+    assert len(client.created) == 1
     assert len(client.destroyed) == 0
+    # Per-file results echo the original filenames but share the bundle's asset id.
+    assert [r.filename for r in result.results] == ["a.json", "b.json"]
+    assert {r.asset_id for r in result.results} == {client.created[0]}
     assert all(r.status == "ok" for r in result.results)
     assert result.donation_id == donation.id
 
-    # Each create_asset call goes to the project namespace with a
-    # disambiguator-prefixed asset name and the donations collection_id.
-    assert [call["namespace"] for call in client.create_calls] == ["/projects", "/projects"]
-    assert [call["collection_id"] for call in client.create_calls] == [42, 42]
-    names = [call["name"] for call in client.create_calls]
-    assert all(n.startswith(c.code + "__") and n.endswith(".json") for n in names)
-    assert any(n.endswith("a.json") for n in names)
-    assert any(n.endswith("b.json") for n in names)
+    # The single create_asset call lands in the project namespace as a
+    # zip-named bundle and is added to the donations collection.
+    [call] = client.create_calls
+    assert call["namespace"] == "/projects"
+    assert call["collection_id"] == 42
+    assert call["name"].startswith(c.code + "__")
+    assert call["name"].endswith(".zip")
 
 
 @pytest.mark.asyncio
@@ -117,9 +121,9 @@ async def test_perform_donation_rolls_back_on_partial_failure(session, tmp_path)
     [c] = await generate_codes(session, count=1, max_uses=1)
     await session.commit()
 
-    # Fail on the second create_asset call.
-    client = StubMediafluxClient(fail_after=1)
-    files = _files(tmp_path, ["a.json", "b.json"])
+    # Fail on the only create_asset call (one bundle = one create_asset call).
+    client = StubMediafluxClient(fail_after=0)
+    bundle, names = _bundle(tmp_path, ["a.json", "b.json"])
 
     with pytest.raises(MediafluxAssetCreateError):
         await perform_donation(
@@ -131,7 +135,8 @@ async def test_perform_donation_rolls_back_on_partial_failure(session, tmp_path)
             consent_accepted_at=datetime.now(timezone.utc),
             client_ip_hash="h",
             app_version="dev",
-            files=files,
+            bundle=bundle,
+            original_filenames=names,
         )
 
     await session.commit()
@@ -139,8 +144,10 @@ async def test_perform_donation_rolls_back_on_partial_failure(session, tmp_path)
     refreshed = await session.get(ParticipantCode, c.code)
     [donation] = (await session.exec(select(Donation))).all()
 
-    # First asset was created then destroyed during rollback.
-    assert client.destroyed == client.created
+    # No asset was created (the stub failed before returning an id),
+    # so there's nothing to destroy either.
+    assert client.created == []
+    assert client.destroyed == []
     # Use was not burned by a failed attempt.
     assert refreshed.uses == 0
     assert donation.status == DonationStatus.failed
@@ -148,7 +155,7 @@ async def test_perform_donation_rolls_back_on_partial_failure(session, tmp_path)
 
 @pytest.mark.asyncio
 async def test_perform_donation_raises_when_code_unavailable(session, tmp_path):
-    files = _files(tmp_path, ["a.json"])
+    bundle, names = _bundle(tmp_path, ["a.json"])
     with pytest.raises(CodeUnavailable):
         await perform_donation(
             session,
@@ -159,5 +166,6 @@ async def test_perform_donation_raises_when_code_unavailable(session, tmp_path):
             consent_accepted_at=datetime.now(timezone.utc),
             client_ip_hash="h",
             app_version="dev",
-            files=files,
+            bundle=bundle,
+            original_filenames=names,
         )

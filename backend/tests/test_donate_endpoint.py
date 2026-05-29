@@ -131,14 +131,20 @@ def test_code_already_used_401_on_retry(client, admin_headers):
     assert r2.status_code == 401
 
 
-def test_partial_failure_returns_502_and_does_not_burn_use(client, admin_headers):
-    """Inject a Mediaflux failure on the second file; assert rollback + retry works."""
+def test_mediaflux_failure_returns_502_and_does_not_burn_use(client, admin_headers):
+    """Inject a Mediaflux failure on the (single) bundle upload.
+
+    With the bundle-per-donation design there is only one create_asset call
+    per donation, so we use fail_after=0 to make that call fail. The
+    contract being verified is: server returns 502, code is not burned,
+    retry with the same code succeeds.
+    """
     from app.mediaflux.client import StubMediafluxClient
 
     code = _new_code(client, admin_headers, max_uses=1)
-    # Replace the cached client with one that fails after 1 success.
+    # Replace the cached client with one that fails on the first call.
     from app import deps
-    deps._mediaflux_client = StubMediafluxClient(fail_after=1)
+    deps._mediaflux_client = StubMediafluxClient(fail_after=0)
 
     r = client.post(
         "/api/donate",
