@@ -10,5 +10,11 @@ services:
       - .env
     volumes:
       - ./data:/app/data
+      # Mount aterm.jar from the host so we can swap versions without
+      # rebuilding the image. Set ATERM_JAR_HOST_PATH in your .env to
+      # point at where you downloaded aterm.jar locally (default below
+      # matches the README's `~/.local/mflux/aterm.jar`). Only consulted
+      # when MEDIAFLUX_CLIENT=aterm.
+      - ${ATERM_JAR_HOST_PATH:-~/.local/mflux/aterm.jar}:/opt/mediaflux/aterm.jar:ro
     environment:
       DATABASE_URL: "sqlite+aiosqlite:////app/data/donations.db"
