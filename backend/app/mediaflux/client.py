@@ -111,15 +111,25 @@ class AtermMediafluxClient(MediafluxClient):
         self.java_executable = java_executable
 
     def _base_cmd(self) -> list[str]:
+        # aterm's nogui mode reads connection config from JVM -D properties,
+        # NOT from --server=… CLI flags (those get interpreted as Tcl commands
+        # by the inner shell and error with "invalid command name").
+        #
+        # Secure-identity tokens live in a special pseudo-domain called
+        # "token"; auth uses domain=token + user=<token-string> (the same
+        # pattern documented for SFTP/SMB). No password — the token IS
+        # the credential.
         return [
             self.java_executable,
+            f"-Dmf.host={self.host}",
+            f"-Dmf.port={self.port}",
+            "-Dmf.transport=https",
+            "-Dmf.domain=token",
+            f"-Dmf.user={self.token}",
+            f"-Dmf.password={self.token}",
             "-jar",
             str(self.jar_path),
             "nogui",
-            f"--server={self.host}",
-            f"--port={self.port}",
-            "--encrypt",
-            f"--token={self.token}",
         ]
 
     async def _run(self, args: list[str]) -> str:
@@ -165,15 +175,25 @@ class AtermMediafluxClient(MediafluxClient):
         # without elevated permissions and stays human-readable in
         # Asset Finder. See render_description() for the encoding.
         description = render_description(metadata)
-        args = [
+        # `:pid <collection-asset-id>` makes the new asset a MEMBER of that
+        # collection. (`:collection true|false` is a different arg that
+        # marks whether the new asset is itself a collection — not what
+        # we want.)
+        # When :pid is given, Mediaflux places the new asset in the same
+        # namespace as the parent collection — so we must NOT also pass
+        # :namespace, or the server does a separate write-permission
+        # check on that namespace (which a project-scoped token won't
+        # pass for, e.g., /projects).
+        args: list[str] = [
             "asset.create",
-            ":namespace", namespace,
             ":name", name,
             ":description", description,
             ":in", f"file:{file_path}",
         ]
         if collection_id is not None:
-            args.extend([":collection", str(collection_id)])
+            args.extend([":pid", str(collection_id)])
+        else:
+            args.extend([":namespace", namespace])
         out = await self._run(args)
         m = _ASSET_ID_RE.search(out)
         if not m:

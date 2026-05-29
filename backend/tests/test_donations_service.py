@@ -112,7 +112,8 @@ async def test_perform_donation_happy_path(session, tmp_path):
     [call] = client.create_calls
     assert call["namespace"] == "/projects"
     assert call["collection_id"] == 42
-    assert call["name"].startswith(c.code + "__")
+    assert call["name"].startswith("donation_")  # guards against leading-dash codes
+    assert c.code in call["name"]
     assert call["name"].endswith(".zip")
 
 

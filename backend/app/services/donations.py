@@ -71,11 +71,17 @@ def _safe_code_for_path(code: str) -> str:
 def _build_bundle_name(code: str, ts: datetime, donation_id: int) -> str:
     """Compose a unique, prefix-sortable asset name for one donation bundle.
 
-    Format: `<code>__<YYYYMMDD-HHMMSS>__<donation_id>.zip` — sorts
+    Format: `donation_<code>__<YYYYMMDD-HHMMSS>__<donation_id>.zip` — sorts
     chronologically by donor and is trivially parseable later.
+
+    The fixed `donation_` prefix matters: secrets.token_urlsafe can emit
+    codes starting with `-` or `_`, and aterm's Tcl-like shell parser
+    treats `:name -anything…` as "qualifier followed by another
+    qualifier" and bails with "missing value for qualifier". The prefix
+    guarantees the asset name always starts with an alphanumeric.
     """
     stamp = ts.strftime("%Y%m%d-%H%M%S")
-    return f"{_safe_code_for_path(code)}__{stamp}__{donation_id}.zip"
+    return f"donation_{_safe_code_for_path(code)}__{stamp}__{donation_id}.zip"
 
 
 async def perform_donation(
