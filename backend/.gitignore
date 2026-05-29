@@ -10,3 +10,6 @@ __pycache__/
 htmlcov/
 dist/
 build/
+
+# Donation bundles are runtime data (PII!) — never commit them.
+data/

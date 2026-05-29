@@ -52,3 +52,4 @@ playwright-report/
 .mcp.json
 .claude
 local
+.env
