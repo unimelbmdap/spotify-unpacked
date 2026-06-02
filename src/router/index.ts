@@ -19,6 +19,11 @@ const router = createRouter({
       name: 'downloadsteps',
       component: () => import('@/views/DownloadSteps.vue'),
     },
+    {
+      path: '/interviewer',
+      name: 'interviewer',
+      component: () => import('@/views/InterviewerView.vue'),
+    },
   ],
 })
 

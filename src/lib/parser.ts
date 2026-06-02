@@ -47,5 +47,24 @@ export function parseStreamingFile(raw: unknown): MusicEntry[] {
       audiobookUri: entry.audiobook_uri,
       audiobookChapterUri: entry.audiobook_chapter_uri,
       audiobookChapterTitle: entry.audiobook_chapter_title,
-    }))
+    }))}
+
+export function parseLibraryFile(raw: unknown): Set<string> {
+  if (typeof raw !== 'object' || raw === null) return new Set()
+  const { tracks } = raw as { tracks?: Array<{ uri?: string }> }
+  if (!Array.isArray(tracks)) return new Set()
+  return new Set(tracks.map(t => t.uri).filter((uri): uri is string => typeof uri === 'string'))
+}
+
+export function parsePlaylistFile(raw: unknown): Set<string> {
+  if (typeof raw !== 'object' || raw === null) return new Set()
+  const { playlists } = raw as { playlists?: Array<{ items?: Array<{ track?: { trackUri?: string } }> }> }
+  if (!Array.isArray(playlists)) return new Set()
+  const uris = new Set<string>()
+  for (const playlist of playlists) {
+    for (const item of playlist.items ?? []) {
+      if (item.track?.trackUri) uris.add(item.track.trackUri)
+    }
+  }
+  return uris
 }

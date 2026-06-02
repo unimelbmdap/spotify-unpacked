@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import type { ChartData } from 'chart.js'
-import { parseStreamingFile, type MusicEntry } from '@/lib/parser'
+import { parseStreamingFile, parseLibraryFile, parsePlaylistFile, type MusicEntry } from '@/lib/parser'
 import { classifyFile, type FileTypeKey, fileTypes } from '@/lib/fileTypes'
 
 export interface LoadedFile {
@@ -10,106 +10,14 @@ export interface LoadedFile {
   type: FileTypeKey | 'unrecognised'
 }
 
-const dummyChartData: Record<string, ChartData> = {
-  bar: {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [
-      { label: 'Streams', backgroundColor: '#6366f1', data: [120, 190, 80, 140, 200, 160] },
-    ],
-  },
-  line: {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [
-      { label: 'Listeners', borderColor: '#6366f1', data: [65, 59, 80, 81, 56, 72], fill: false },
-    ],
-  },
-  pie: {
-    labels: ['Pop', 'Rock', 'Jazz', 'Hip-Hop', 'Electronic'],
-    datasets: [
-      {
-        backgroundColor: ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6'],
-        data: [30, 20, 15, 25, 10],
-      },
-    ],
-  },
-  doughnut: {
-    labels: ['Mobile', 'Desktop', 'Tablet', 'Smart TV'],
-    datasets: [
-      { backgroundColor: ['#6366f1', '#ec4899', '#f59e0b', '#10b981'], data: [45, 30, 15, 10] },
-    ],
-  },
-  radar: {
-    labels: ['Energy', 'Danceability', 'Valence', 'Acousticness', 'Tempo', 'Speechiness'],
-    datasets: [
-      {
-        label: 'Track A',
-        borderColor: '#6366f1',
-        backgroundColor: 'rgba(99,102,241,0.2)',
-        data: [80, 65, 70, 30, 55, 40],
-      },
-      {
-        label: 'Track B',
-        borderColor: '#ec4899',
-        backgroundColor: 'rgba(236,72,153,0.2)',
-        data: [50, 80, 60, 70, 45, 30],
-      },
-    ],
-  },
-  polarArea: {
-    labels: ['Acousticness', 'Danceability', 'Energy', 'Instrumentalness', 'Liveness'],
-    datasets: [
-      {
-        backgroundColor: ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6'],
-        data: [70, 85, 60, 30, 45],
-      },
-    ],
-  },
-  bubble: {
-    datasets: [
-      {
-        label: 'Playlist A',
-        backgroundColor: 'rgba(99,102,241,0.5)',
-        data: [
-          { x: 10, y: 20, r: 15 },
-          { x: 25, y: 35, r: 10 },
-          { x: 40, y: 10, r: 20 },
-        ],
-      },
-      {
-        label: 'Playlist B',
-        backgroundColor: 'rgba(236,72,153,0.5)',
-        data: [
-          { x: 15, y: 40, r: 12 },
-          { x: 30, y: 25, r: 18 },
-          { x: 50, y: 30, r: 8 },
-        ],
-      },
-    ],
-  },
-  scatter: {
-    datasets: [
-      {
-        label: 'Tempo vs Energy',
-        backgroundColor: '#6366f1',
-        data: [
-          { x: 80, y: 40 },
-          { x: 100, y: 60 },
-          { x: 120, y: 75 },
-          { x: 140, y: 55 },
-          { x: 160, y: 85 },
-          { x: 90, y: 50 },
-          { x: 110, y: 70 },
-        ],
-      },
-    ],
-  },
-}
-
 export const useDataStore = defineStore('data', () => {
   const entries = ref<MusicEntry[]>([])
   const files = ref<LoadedFile[]>([])
   const isLoading = ref(false)
-  const chartData = ref<Record<string, ChartData>>({ ...dummyChartData })
+  const chartData = ref<Record<string, ChartData>>({})
+
+  const playlistUris = ref<Set<string>>(new Set())
+  const libraryUris = ref<Set<string>>(new Set())
 
   const fileCount = computed(() => files.value.length)
   const hasData = computed(() => files.value.length > 0)
@@ -122,12 +30,18 @@ async function loadFiles(rawFiles: File[]) {
   try {
 
     for (const file of rawFiles) {
-      try{
-      const text = await file.text()
-      const json = JSON.parse(text)
-      const parsed = parseStreamingFile(json)
-      entries.value.push(...parsed)
-      files.value.push({ name: file.name, size: file.size, type: classifyFile(file.name) })
+      try {
+        const text = await file.text()
+        const json = JSON.parse(text)
+        const fileType = classifyFile(file.name)
+        if (fileType === 'listening') {
+          entries.value.push(...parseStreamingFile(json))
+        } else if (fileType === 'library') {
+          libraryUris.value = parseLibraryFile(json)
+        } else if (fileType === 'playlists') {
+          playlistUris.value = parsePlaylistFile(json)
+        }
+        files.value.push({ name: file.name, size: file.size, type: fileType })
       } catch {
         // skip files that can't be parsed
       }
@@ -149,6 +63,25 @@ const listeningTimeHours = computed(() => {
   return Math.round(totalMs / 1000 / 60 / 60)
 })
 
+const listeningTimeByMonth = computed(() => {
+  const counts: Record<string, number> = {}
+  for (const entry of entries.value) {
+    const date = new Date(entry.ts)
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+    counts[key] = (counts[key] ?? 0) + Math.round(entry.msPlayed / 1000 / 60)
+  }
+  return Object.fromEntries(
+    Object.entries(counts)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, val]) => {
+        const [year, month] = key.split('-')
+        const label = new Date(Number(year), Number(month) - 1)
+          .toLocaleString('default', { month: 'short', year: 'numeric' })
+        return [label, val]
+      })
+  )
+})
+
 const uniqueTrackCount = computed(() => {
   return new Set(entries.value.map((e) => e.trackUri)).size
 })
@@ -164,11 +97,30 @@ const favouriteHour = computed(() => {
   return new Date(0, 0, 0, Number(topHour[0])).toLocaleTimeString([], { hour: 'numeric', hour12: true })
 })
 
+const listeningTimeByHour = computed(() => {
+  const totals = Array(24).fill(0)
+  for (const entry of entries.value) {
+    const hour = new Date(entry.ts).getHours()
+    totals[hour] += entry.msPlayed
+  }
+  return totals.map(ms => Math.round((ms / 1000 / 60 / 60) * 10) / 10)
+})
+
+const listeningTimeByDay = computed(() => {
+  const totals = Array(7).fill(0) // Mon=0 … Sun=6
+  for (const entry of entries.value) {
+    const dow = new Date(entry.ts).getDay() // 0=Sun, 1=Mon … 6=Sat
+    const idx = dow === 0 ? 6 : dow - 1
+    totals[idx] += entry.msPlayed
+  }
+  return totals.map(ms => Math.round((ms / 1000 / 60 / 60) * 10) / 10)
+})
+
 function clear() {
   files.value = []
   entries.value = []
-  chartData.value = { ...dummyChartData }
+  chartData.value = {}
 }
 
-  return { files, entries, isLoading, fileCount, fileTypeStatus, hasData, chartData, getChartData, loadFiles, clear, listeningTimeHours, uniqueTrackCount, favouriteHour }
+  return { files, entries, isLoading, fileCount, fileTypeStatus, hasData, chartData, getChartData, loadFiles, clear, listeningTimeHours, listeningTimeByMonth, uniqueTrackCount, favouriteHour, listeningTimeByHour, listeningTimeByDay }
 })
