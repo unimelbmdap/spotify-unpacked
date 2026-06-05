@@ -1,40 +1,40 @@
 <script setup lang="ts">
-import { RouterLink } from 'vue-router'
+import { RouterLink } from "vue-router";
 
 const panels = [
   {
     src: `${import.meta.env.BASE_URL}Panel1_DownloadTitle.png`,
-    alt: 'Instructions on how to download your Spotify data',
+    alt: "Instructions on how to download your Spotify data",
   },
   {
     src: `${import.meta.env.BASE_URL}Panel2_Explain.png`,
-    alt: 'The download files you donate have your listening history and account data to understand what you listen to in 2025 from your library and from the Spotify algorithm.',
+    alt: "The download files you donate have your listening history and account data to understand what you listen to in 2025 from your library and from the Spotify algorithm.",
   },
   {
     src: `${import.meta.env.BASE_URL}Panel3_OpenWebBrowser.png`,
-    alt: 'Log into Spotify in a browser',
+    alt: "Log into Spotify in a browser",
   },
   {
     src: `${import.meta.env.BASE_URL}Panel4_AccessAccount.png`,
-    alt: 'Go to your account settings',
+    alt: "Go to your account settings",
   },
   {
     src: `${import.meta.env.BASE_URL}Panel5_SelectAccountPrivacy.png`,
-    alt: 'Navigate to the Security and Privacy section',
+    alt: "Navigate to the Security and Privacy section",
   },
   {
     src: `${import.meta.env.BASE_URL}Panel6_RequestData.png`,
-    alt: 'Choose to download your Account Data and Extended streaming history',
+    alt: "Choose to download your Account Data and Extended streaming history",
   },
   {
     src: `${import.meta.env.BASE_URL}Panel7_Wait.png`,
-    alt: 'Wait for your data request to be processed',
+    alt: "Wait for your data request to be processed",
   },
   {
     src: `${import.meta.env.BASE_URL}Panel8_ThankYou.png`,
-    alt: 'Thank you for requesting to download your Spotify data. When you donate your files to us, they will be visualised and sent back to you for your records.',
+    alt: "Thank you for requesting to download your Spotify data. When you donate your files to us, they will be visualised and sent back to you for your records.",
   },
-]
+];
 </script>
 
 <template>
@@ -46,7 +46,16 @@ const panels = [
 
     <main class="panels">
       <figure v-for="panel in panels" :key="panel.src">
-        <img :src="panel.src" :alt="panel.alt" />
+        <a
+          v-if="panel.src.includes('Panel3_OpenWebBrowser')"
+          href="https://open.spotify.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-block cursor-pointer hover:opacity-80 transition-opacity"
+        >
+          <img :src="panel.src" :alt="panel.alt" />
+        </a>
+        <img v-else :src="panel.src" :alt="panel.alt" />
       </figure>
     </main>
     <RouterLink to="/">
