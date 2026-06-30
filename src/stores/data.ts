@@ -116,11 +116,68 @@ const listeningTimeByDay = computed(() => {
   return totals.map(ms => Math.round((ms / 1000 / 60 / 60) * 10) / 10)
 })
 
+const combinedLibraryUris = computed(() => new Set([...libraryUris.value, ...playlistUris.value]))
+
+function byHour(subset: MusicEntry[]) {
+  const totals = Array(24).fill(0)
+  for (const entry of subset) {
+    const hour = new Date(entry.ts).getHours()
+    totals[hour] += entry.msPlayed
+  }
+  return totals.map(ms => Math.round((ms / 1000 / 60 / 60) * 10) / 10)
+}
+
+function byDay(subset: MusicEntry[]) {
+  const totals = Array(7).fill(0)
+  for (const entry of subset) {
+    const dow = new Date(entry.ts).getDay()
+    const idx = dow === 0 ? 6 : dow - 1
+    totals[idx] += entry.msPlayed
+  }
+  return totals.map(ms => Math.round((ms / 1000 / 60 / 60) * 10) / 10)
+}
+
+function byMonth(subset: MusicEntry[]) {
+  const counts: Record<string, number> = {}
+  for (const entry of subset) {
+    const date = new Date(entry.ts)
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+    counts[key] = (counts[key] ?? 0) + Math.round(entry.msPlayed / 1000 / 60)
+  }
+  return Object.fromEntries(
+    Object.entries(counts)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, val]) => {
+        const [year, month] = key.split('-')
+        const label = new Date(Number(year), Number(month) - 1)
+          .toLocaleString('default', { month: 'short', year: 'numeric' })
+        return [label, val]
+      })
+  )
+}
+
+const libraryEntries = computed(() => entries.value.filter(e => combinedLibraryUris.value.has(e.trackUri)))
+const otherEntries = computed(() => entries.value.filter(e => !combinedLibraryUris.value.has(e.trackUri)))
+
+const listeningTimeHoursLibrary = computed(() =>
+  Math.round(libraryEntries.value.reduce((sum, e) => sum + e.msPlayed, 0) / 1000 / 60 / 60)
+)
+const listeningTimeHoursOther = computed(() =>
+  Math.round(otherEntries.value.reduce((sum, e) => sum + e.msPlayed, 0) / 1000 / 60 / 60)
+)
+
+const listeningTimeByHourLibrary = computed(() => byHour(libraryEntries.value))
+const listeningTimeByHourOther = computed(() => byHour(otherEntries.value))
+const listeningTimeByDayLibrary = computed(() => byDay(entries.value.filter(e => combinedLibraryUris.value.has(e.trackUri))))
+const listeningTimeByDayOther = computed(() => byDay(entries.value.filter(e => !combinedLibraryUris.value.has(e.trackUri))))
+const listeningTimeByMonthLibrary = computed(() => byMonth(entries.value.filter(e => combinedLibraryUris.value.has(e.trackUri))))
+const listeningTimeByMonthOther = computed(() => byMonth(entries.value.filter(e => !combinedLibraryUris.value.has(e.trackUri))))
+
 function clear() {
   files.value = []
   entries.value = []
   chartData.value = {}
 }
 
-  return { files, entries, isLoading, fileCount, fileTypeStatus, hasData, chartData, getChartData, loadFiles, clear, listeningTimeHours, listeningTimeByMonth, uniqueTrackCount, favouriteHour, listeningTimeByHour, listeningTimeByDay }
+  return { files, entries, isLoading, fileCount, fileTypeStatus, hasData, chartData, getChartData, loadFiles, clear, listeningTimeHours, listeningTimeHoursLibrary, listeningTimeHoursOther, listeningTimeByMonth, uniqueTrackCount, favouriteHour, listeningTimeByHour, listeningTimeByDay, listeningTimeByHourLibrary, listeningTimeByHourOther, listeningTimeByDayLibrary, listeningTimeByDayOther, listeningTimeByMonthLibrary, listeningTimeByMonthOther }
 })
