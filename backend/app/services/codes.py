@@ -120,7 +120,7 @@ async def list_codes(session: AsyncSession) -> list[ParticipantCode]:
 
 
 async def revoke_code(session: AsyncSession, *, code: str) -> ParticipantCode | None:
-    obj = await session.get(ParticipantCode, code)
+    obj = await session.get(ParticipantCode, normalise_code(code))
     if obj is None:
         return None
     obj.status = CodeStatus.revoked
@@ -135,7 +135,7 @@ async def update_code(
     max_uses: int | None = None,
     admin_label: str | None = None,
 ) -> ParticipantCode | None:
-    obj = await session.get(ParticipantCode, code)
+    obj = await session.get(ParticipantCode, normalise_code(code))
     if obj is None:
         return None
     if max_uses is not None:

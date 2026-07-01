@@ -66,6 +66,7 @@ async def list_codes(db: AsyncSession = Depends(get_db)):
 async def patch_code(code: str, req: CodeUpdateRequest, db: AsyncSession = Depends(get_db)):
     from app.models import ParticipantCode
 
+    code = codes_service.normalise_code(code)
     updated = None
     if req.status == "revoked":
         updated = await codes_service.revoke_code(db, code=code)

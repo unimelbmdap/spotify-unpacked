@@ -32,6 +32,18 @@ def test_patch_code_revokes(client, admin_headers):
     assert r.json()["status"] == "revoked"
 
 
+def test_patch_code_is_case_insensitive(client, admin_headers):
+    [c] = client.post("/api/admin/codes", headers=admin_headers, json={"count": 1}).json()
+    # Codes are stored uppercase; a lower-case path param must still match.
+    r = client.patch(
+        f"/api/admin/codes/{c['code'].lower()}",
+        headers=admin_headers,
+        json={"status": "revoked"},
+    )
+    assert r.status_code == 200
+    assert r.json()["status"] == "revoked"
+
+
 def test_patch_unknown_code_returns_404(client, admin_headers):
     r = client.patch("/api/admin/codes/no-such", headers=admin_headers, json={"status": "revoked"})
     assert r.status_code == 404
