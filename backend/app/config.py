@@ -55,11 +55,20 @@ class Settings(BaseSettings):
     mediaflux_token: str = ""
     aterm_jar_path: Path = Path("/opt/mediaflux/aterm.jar")
 
+    # Participant-code whitelist seed file (CSV: `code,max_uses,label`).
+    # Loaded/upserted into the participant_codes table at startup and via
+    # POST /api/admin/codes/reload. Sits on the ./data volume so admins can
+    # edit it on the host. Set to None to disable file-based seeding.
+    participant_codes_file: Path | None = Path("./data/participant_codes.csv")
+
     # Upload limits
     max_files_per_request: int = 10
     max_bytes_per_file: int = 50 * 1024 * 1024
     max_bytes_per_request: int = 200 * 1024 * 1024
     rate_limit_donate: str = "5/minute"
+    # Rate limit for the public code-validation endpoint. Kept stricter than
+    # donate to blunt code-guessing since the endpoint reveals validity.
+    rate_limit_validate: str = "20/minute"
 
     @field_validator("ip_hash_salt")
     @classmethod

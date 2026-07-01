@@ -4,11 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.deps import get_db, require_admin
+from app.config import Settings
+from app.deps import get_db, get_settings, require_admin
 from app.models import AuditEvent, CodeStatus, Donation
 from app.schemas import (
     AuditEventResponse,
     CodeCreateRequest,
+    CodeReloadResponse,
     CodeResponse,
     CodeUpdateRequest,
     DonationListItem,
@@ -36,6 +38,22 @@ async def create_codes(req: CodeCreateRequest, db: AsyncSession = Depends(get_db
     )
     await db.commit()
     return [_to_response(c) for c in new_codes]
+
+
+@router.post("/codes/reload", response_model=CodeReloadResponse)
+async def reload_codes(
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+):
+    path = settings.participant_codes_file
+    if path is None or not path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="No participant codes file configured or file missing",
+        )
+    summary, _errors = await codes_service.load_codes_from_file(db, path)
+    await db.commit()
+    return CodeReloadResponse(**summary)
 
 
 @router.get("/codes", response_model=list[CodeResponse])

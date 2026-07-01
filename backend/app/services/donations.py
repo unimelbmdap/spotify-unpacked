@@ -10,6 +10,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.mediaflux.metadata import DonorMetadata
 from app.models import CodeStatus, Donation, DonationStatus, ParticipantCode
 from app.schemas import DonateResult, DonationResponse
+from app.services.codes import normalise_code
 from app.services.storage import store_bundle
 
 # Asset/path-friendly subset of the donor code for the namespace path.
@@ -36,6 +37,7 @@ async def reserve_code(session: AsyncSession, *, code: str) -> bool:
     ParticipantCode instance already in the identity map has its uses attribute
     updated in-memory — avoiding stale-read issues without triggering async I/O.
     """
+    code = normalise_code(code)
     stmt = (
         update(ParticipantCode)
         .where(
@@ -52,6 +54,7 @@ async def reserve_code(session: AsyncSession, *, code: str) -> bool:
 
 async def _release_code(session: AsyncSession, *, code: str) -> None:
     """Decrement uses by 1 for compensation on donation failure."""
+    code = normalise_code(code)
     stmt = (
         update(ParticipantCode)
         .where(
@@ -125,6 +128,7 @@ async def perform_donation(
       4. Mark the donation `stored` with the storage_path.
       5. On any failure: release the code, mark failed, re-raise.
     """
+    code = normalise_code(code)
     if not await reserve_code(session, code=code):
         raise CodeUnavailable(code)
 

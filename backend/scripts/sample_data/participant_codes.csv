@@ -1,0 +1,13 @@
+# Participant-code whitelist seed file.
+# Format: code,max_uses,label
+#   - code:      6-32 chars of [A-Za-z0-9_-]; matched case-insensitively.
+#   - max_uses:  optional, default 1.
+#   - label:     optional admin note; MUST NOT contain PII.
+# Lines starting with '#' and blank lines are ignored.
+#
+# Copy this to the path set by PARTICIPANT_CODES_FILE (default
+# ./data/participant_codes.csv) and edit for your cohort. The real file lives
+# under data/ which is gitignored, so codes are never committed.
+MDAP-2026-001,1,pilot cohort
+MDAP-2026-002,1,pilot cohort
+MDAP-2026-003,3,shared demo code

@@ -27,3 +27,8 @@ def attach_limiter(app: FastAPI) -> None:
 def donate_rate_limit() -> Callable[..., Any]:
     """Decorator that applies the configured donate rate limit."""
     return limiter.limit(lambda: get_settings().rate_limit_donate)
+
+
+def validate_rate_limit() -> Callable[..., Any]:
+    """Decorator that applies the configured code-validation rate limit."""
+    return limiter.limit(lambda: get_settings().rate_limit_validate)

@@ -24,3 +24,7 @@ services:
       # bundles from the host side — it doesn't have to be in this
       # container.
       DONATIONS_STORAGE_DIR: "/app/data/donations"
+      # Whitelist seed file on the mounted ./data volume. Drop a
+      # participant_codes.csv there (see scripts/sample_data/) and it's
+      # loaded at startup; POST /api/admin/codes/reload re-reads it live.
+      PARTICIPANT_CODES_FILE: "/app/data/participant_codes.csv"

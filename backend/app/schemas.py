@@ -40,6 +40,16 @@ class CodeResponse(BaseModel):
     admin_label: str | None
 
 
+class CodeValidationResponse(BaseModel):
+    valid: bool
+
+
+class CodeReloadResponse(BaseModel):
+    added: int
+    updated: int
+    skipped: int
+
+
 class DonateResult(BaseModel):
     filename: str
     asset_id: str | None
