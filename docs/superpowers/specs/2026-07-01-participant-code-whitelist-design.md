@@ -56,7 +56,7 @@ which is authoritatively re-validated on the backend.
      of skipped/invalid lines for logging. No DB access (pure/ testable).
 
 3. **Public validate endpoint** (new `backend/app/routes/codes.py`)
-   - `GET /api/codes/{code}` → `{ "valid": true|false }`. Returns plain `false`
+   - `POST /api/codes/validate` (code in body) → `{ "valid": true|false }`. Returns plain `false`
      for unknown/revoked/exhausted/malformed alike (no enumeration signal).
    - Rate-limited via the existing slowapi limiter; new `rate_limit_validate`
      setting (default `20/minute`).
@@ -102,7 +102,7 @@ which is authoritatively re-validated on the backend.
 
 - Up-front check is convenience only; atomic `reserve_code` on submit remains
   authoritative (handles the check→submit race and double-use).
-- Rate limiting on `/api/codes/{code}` (new) and `/api/donate` (existing).
+- Rate limiting on `/api/codes/validate` (new) and `/api/donate` (existing).
 - No new PII stored; `admin_label` remains admin-only and PII-free.
 
 ## Testing

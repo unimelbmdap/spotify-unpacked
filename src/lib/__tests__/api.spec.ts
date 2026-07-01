@@ -5,7 +5,7 @@ import { ApiError, checkCode, getConsent } from '@/lib/api'
 afterEach(() => vi.restoreAllMocks())
 
 describe('api client', () => {
-  it('checkCode returns validity for a 200 response and encodes the code', async () => {
+  it('checkCode POSTs the code in the body and returns validity', async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue({ ok: true, status: 200, json: async () => ({ valid: true }) })
@@ -14,7 +14,10 @@ describe('api client', () => {
     const result = await checkCode('MDAP-2026-001')
 
     expect(result.valid).toBe(true)
-    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/api/codes/MDAP-2026-001')
+    const [url, init] = fetchMock.mock.calls[0] ?? []
+    expect(String(url)).toContain('/api/codes/validate')
+    expect(init?.method).toBe('POST')
+    expect(JSON.parse(init?.body as string)).toEqual({ code: 'MDAP-2026-001' })
   })
 
   it('checkCode throws ApiError with the status on a non-ok response', async () => {

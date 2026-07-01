@@ -40,6 +40,10 @@ class CodeResponse(BaseModel):
     admin_label: str | None
 
 
+class CodeValidateRequest(BaseModel):
+    code: str
+
+
 class CodeValidationResponse(BaseModel):
     valid: bool
 

@@ -44,8 +44,9 @@ case-insensitively, and stored in the `participant_codes` table.
   see `scripts/sample_data/participant_codes.csv`). It's loaded at startup and
   re-read on demand via `POST /api/admin/codes/reload` (admin auth + the
   `X-Admin-Request: 1` header). The real file belongs under `data/` (gitignored).
-- **Validation:** `GET /api/codes/{code}` returns `{"valid": true|false}` for the
-  donate page's up-front check (rate-limited by `RATE_LIMIT_VALIDATE`). The
+- **Validation:** `POST /api/codes/validate` with `{"code": "..."}` returns
+  `{"valid": true|false}` for the donate page's up-front check (code in the body,
+  not the URL, to keep it out of logs; rate-limited by `RATE_LIMIT_VALIDATE`). The
   authoritative check is the atomic reservation done at `POST /api/donate`.
 - **Admin API:** `POST/GET/PATCH /api/admin/codes` still manage codes directly.
 - **Admin panel:** a browser UI at `/admin` (sqladmin) for CRUD over codes plus a

@@ -49,7 +49,9 @@ def prepare_code_data(data: dict[str, Any], *, is_created: bool) -> dict[str, An
 
 class AdminAuth(AuthenticationBackend):
     def __init__(self, secret_key: str, settings: Settings) -> None:
-        super().__init__(secret_key=secret_key)
+        # SameSite=Strict so a logged-in admin's session cookie is not sent on
+        # cross-site requests, mitigating CSRF on state-changing panel actions.
+        super().__init__(secret_key=secret_key, same_site="strict")
         self._settings = settings
 
     async def login(self, request: Request) -> bool:

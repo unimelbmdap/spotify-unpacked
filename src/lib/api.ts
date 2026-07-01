@@ -43,9 +43,14 @@ async function detailOf(res: Response): Promise<string> {
   }
 }
 
-/** Up-front, read-only check that a participant code can currently be used. */
+/** Up-front, read-only check that a participant code can currently be used.
+ *  The code goes in the POST body (not the URL) so it stays out of logs. */
 export async function checkCode(code: string): Promise<CodeCheck> {
-  const res = await fetch(`${BASE_URL}/api/codes/${encodeURIComponent(code)}`)
+  const res = await fetch(`${BASE_URL}/api/codes/validate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  })
   if (!res.ok) {
     throw new ApiError(res.status, await detailOf(res))
   }

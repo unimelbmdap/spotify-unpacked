@@ -58,3 +58,14 @@ def test_admin_login_page_is_mounted(client):
 def test_admin_index_requires_auth(client):
     r = client.get("/admin", follow_redirects=False)
     assert r.status_code in (302, 307)
+
+
+def test_admin_session_cookie_is_samesite_strict(client):
+    # SameSite=Strict blocks cross-site GETs from carrying the admin session,
+    # mitigating CSRF on the panel's state-changing actions.
+    r = client.post(
+        "/admin/login",
+        data={"username": "admin", "password": "hunter2hunter"},
+        follow_redirects=False,
+    )
+    assert "samesite=strict" in r.headers.get("set-cookie", "").lower()

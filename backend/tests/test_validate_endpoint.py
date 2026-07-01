@@ -41,28 +41,28 @@ def _make_code(client, admin_headers, max_uses=1):
 
 def test_valid_active_code_returns_true(client, admin_headers):
     code = _make_code(client, admin_headers)
-    r = client.get(f"/api/codes/{code}")
+    r = client.post("/api/codes/validate", json={"code": code})
     assert r.status_code == 200
     assert r.json() == {"valid": True}
 
 
 def test_unknown_code_returns_false(client):
-    assert client.get("/api/codes/UNKNOWN-CODE-1").json() == {"valid": False}
+    assert client.post("/api/codes/validate", json={"code": "UNKNOWN-CODE-1"}).json() == {"valid": False}
 
 
 def test_revoked_code_returns_false(client, admin_headers):
     code = _make_code(client, admin_headers)
     client.patch(f"/api/admin/codes/{code}", headers=admin_headers, json={"status": "revoked"})
-    assert client.get(f"/api/codes/{code}").json() == {"valid": False}
+    assert client.post("/api/codes/validate", json={"code": code}).json() == {"valid": False}
 
 
 def test_validation_is_case_insensitive(client, admin_headers):
     code = _make_code(client, admin_headers)
-    assert client.get(f"/api/codes/{code.lower()}").json() == {"valid": True}
+    assert client.post("/api/codes/validate", json={"code": code.lower()}).json() == {"valid": True}
 
 
 def test_malformed_code_returns_false_not_error(client):
-    r = client.get("/api/codes/ab")  # too short for CODE_REGEX
+    r = client.post("/api/codes/validate", json={"code": "ab"})  # too short
     assert r.status_code == 200
     assert r.json() == {"valid": False}
 

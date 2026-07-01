@@ -40,8 +40,8 @@ def admin_headers():
 
 
 def test_startup_loads_seed_file(client):
-    assert client.get("/api/codes/SEED-0001").json() == {"valid": True}
-    assert client.get("/api/codes/seed-0002").json() == {"valid": True}
+    assert client.post("/api/codes/validate", json={"code": "SEED-0001"}).json() == {"valid": True}
+    assert client.post("/api/codes/validate", json={"code": "seed-0002"}).json() == {"valid": True}
 
 
 def test_reload_imports_new_and_updates_existing(client, admin_headers, seed_file):
@@ -51,7 +51,7 @@ def test_reload_imports_new_and_updates_existing(client, admin_headers, seed_fil
     body = r.json()
     assert body["added"] == 1  # SEED-0003
     assert body["updated"] == 1  # SEED-0001
-    assert client.get("/api/codes/SEED-0003").json() == {"valid": True}
+    assert client.post("/api/codes/validate", json={"code": "SEED-0003"}).json() == {"valid": True}
 
 
 def test_reload_requires_admin_and_csrf(client):
@@ -71,4 +71,6 @@ def test_empty_codes_file_env_does_not_crash_startup(monkeypatch, tmp_path):
     deps._engine_cache.clear()
     app = create_app()
     with TestClient(app) as c:
-        assert c.get("/api/codes/UNKNOWN-CODE").json() == {"valid": False}
+        assert c.post("/api/codes/validate", json={"code": "UNKNOWN-CODE"}).json() == {
+            "valid": False
+        }
