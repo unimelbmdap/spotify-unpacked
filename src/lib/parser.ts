@@ -24,7 +24,7 @@ export function parseStreamingFile(raw: unknown): MusicEntry[] {
 
   return raw
     .filter((entry) =>
-      entry.ts?.startsWith('2025') &&
+      entry.ts >= '2025-06-01' &&
       entry.master_metadata_track_name !== null &&
       entry.spotify_track_uri !== null
     )
