@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -21,6 +21,17 @@ function onClear() {
   dataStore.clear()
   dropZone.value?.reset()
 }
+
+const duplicateSummary = computed(() => {
+  const parts: string[] = []
+  if (dataStore.skippedFiles.length > 0) {
+    parts.push(`${dataStore.skippedFiles.length} duplicate ${dataStore.skippedFiles.length === 1 ? 'file' : 'files'}`)
+  }
+  if (dataStore.skippedEntryCount > 0) {
+    parts.push(`${dataStore.skippedEntryCount.toLocaleString()} duplicate ${dataStore.skippedEntryCount === 1 ? 'play' : 'plays'} already in your data`)
+  }
+  return parts.length > 0 ? `Skipped ${parts.join(' and ')}.` : ''
+})
 </script>
 
 <template>
@@ -58,6 +69,9 @@ function onClear() {
         </CardHeader>
         <CardContent>
           <FileDropZone ref="dropZone" @files-dropped="onFilesDropped" />
+          <p v-if="duplicateSummary" class="text-muted-foreground mt-2 text-xs">
+            {{ duplicateSummary }}
+          </p>
         </CardContent>
       </Card>
 

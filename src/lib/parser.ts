@@ -19,6 +19,10 @@ export interface MusicEntry {
   audiobookChapterTitle: string | null
 }
 
+export function entryKey(entry: MusicEntry): string {
+  return `${entry.ts}|${entry.trackUri}|${entry.msPlayed}`
+}
+
 export function parseStreamingFile(raw: unknown): MusicEntry[] {
   if (!Array.isArray(raw)) return []
 

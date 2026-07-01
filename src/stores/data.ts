@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import type { ChartData } from 'chart.js'
-import { parseStreamingFile, parseLibraryFile, parsePlaylistFile, type MusicEntry } from '@/lib/parser'
+import { parseStreamingFile, parseLibraryFile, parsePlaylistFile, entryKey, type MusicEntry } from '@/lib/parser'
 import { classifyFile, type FileTypeKey, fileTypes } from '@/lib/fileTypes'
 import {
   archetypeConfig,
@@ -44,28 +44,44 @@ function byDay(subset: MusicEntry[]) {
   return totals.map(ms => msToHours(ms, 1))
 }
 
-function byMonth(subset: MusicEntry[]) {
-  const counts: Record<string, number> = {}
+function monthKeyAndLabel(ts: string) {
+  const date = new Date(ts)
+  const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+  const label = new Date(date.getFullYear(), date.getMonth()).toLocaleString('default', { month: 'short', year: 'numeric' })
+  return { key, label }
+}
+
+function groupByMonth(subset: MusicEntry[]) {
+  const groups = new Map<string, { label: string; entries: MusicEntry[] }>()
   for (const entry of subset) {
-    const date = new Date(entry.ts)
-    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-    counts[key] = (counts[key] ?? 0) + Math.round(entry.msPlayed / 1000 / 60)
+    const { key, label } = monthKeyAndLabel(entry.ts)
+    let group = groups.get(key)
+    if (!group) {
+      group = { label, entries: [] }
+      groups.set(key, group)
+    }
+    group.entries.push(entry)
   }
+  return [...groups.keys()]
+    .sort((a, b) => a.localeCompare(b))
+    .map((key) => groups.get(key)!)
+}
+
+function byMonth(subset: MusicEntry[]) {
   return Object.fromEntries(
-    Object.entries(counts)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, val]) => {
-        const [year, month] = key.split('-')
-        const label = new Date(Number(year), Number(month) - 1)
-          .toLocaleString('default', { month: 'short', year: 'numeric' })
-        return [label, val]
-      })
+    groupByMonth(subset).map(({ label, entries }) => [
+      label,
+      entries.reduce((sum, e) => sum + Math.round(e.msPlayed / 1000 / 60), 0),
+    ])
   )
 }
 
 export const useDataStore = defineStore('data', () => {
   const entries = ref<MusicEntry[]>([])
+  const seenEntries = ref<Set<string>>(new Set())
   const files = ref<LoadedFile[]>([])
+  const skippedFiles = ref<string[]>([])
+  const skippedEntryCount = ref(0)
   const isLoading = ref(false)
   const chartData = ref<Record<string, ChartData>>({})
 
@@ -87,14 +103,28 @@ export const useDataStore = defineStore('data', () => {
           const text = await file.text()
           const json = JSON.parse(text)
           const fileType = classifyFile(file.name)
-          if (fileType === 'listening') {
-            entries.value.push(...parseStreamingFile(json))
-          } else if (fileType === 'library') {
-            libraryUris.value = parseLibraryFile(json)
-          } else if (fileType === 'playlists') {
-            playlistUris.value = parsePlaylistFile(json)
+          const isDuplicate = files.value.some((f) => f.name === file.name && f.size === file.size)
+          if (isDuplicate) {
+            skippedFiles.value.push(file.name)
+          } else {
+            if (fileType === 'listening') {
+              const newEntries = parseStreamingFile(json).filter((entry) => {
+                const key = entryKey(entry)
+                if (seenEntries.value.has(key)) {
+                  skippedEntryCount.value++
+                  return false
+                }
+                seenEntries.value.add(key)
+                return true
+              })
+              entries.value.push(...newEntries)
+            } else if (fileType === 'library') {
+              libraryUris.value = parseLibraryFile(json)
+            } else if (fileType === 'playlists') {
+              playlistUris.value = parsePlaylistFile(json)
+            }
+            files.value.push({ name: file.name, size: file.size, type: fileType })
           }
-          files.value.push({ name: file.name, size: file.size, type: fileType })
         } catch {
           // skip files that can't be parsed
         }
@@ -114,20 +144,45 @@ export const useDataStore = defineStore('data', () => {
   const listeningTimeHours = computed(() => msToHours(sumMs(entries.value)))
   const listeningTimeByMonth = computed(() => byMonth(entries.value))
   const listeningTimeByHour = computed(() => byHour(entries.value))
+
+  const monthlyGroups = computed(() => groupByMonth(entries.value))
+  const monthLabels = computed(() => monthlyGroups.value.map(g => g.label))
+  const entriesByMonth = computed(() =>
+    Object.fromEntries(monthlyGroups.value.map(g => [g.label, g.entries]))
+  )
+
+  function entriesForMonth(label: string) {
+    return entriesByMonth.value[label] ?? []
+  }
+
+  function hourlyForMonth(label: string) {
+    return byHour(entriesForMonth(label))
+  }
+
+  function listeningHoursForMonth(label: string) {
+    return msToHours(sumMs(entriesForMonth(label)), 1)
+  }
+
   const listeningTimeByDay = computed(() => byDay(entries.value))
 
   const uniqueTrackCount = computed(() => new Set(entries.value.map((e) => e.trackUri)).size)
 
-  const favouriteHour = computed(() => {
+  function favouriteHourOf(subset: MusicEntry[]) {
     const counts: Record<number, number> = {}
-    for (const entry of entries.value) {
+    for (const entry of subset) {
       const hour = new Date(entry.ts).getHours()
       counts[hour] = (counts[hour] ?? 0) + 1
     }
     const topHour = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]
     if (!topHour) return null
     return new Date(0, 0, 0, Number(topHour[0])).toLocaleTimeString([], { hour: 'numeric', hour12: true })
-  })
+  }
+
+  const favouriteHour = computed(() => favouriteHourOf(entries.value))
+
+  function favouriteHourForMonth(label: string) {
+    return favouriteHourOf(entriesForMonth(label))
+  }
 
   const combinedLibraryUris = computed(() => new Set([...libraryUris.value, ...playlistUris.value]))
   const hasLibraryData = computed(() => libraryUris.value.size > 0 && playlistUris.value.size > 0)
@@ -202,7 +257,10 @@ export const useDataStore = defineStore('data', () => {
 
   function clear() {
     files.value = []
+    skippedFiles.value = []
+    skippedEntryCount.value = 0
     entries.value = []
+    seenEntries.value = new Set()
     chartData.value = {}
     libraryUris.value = new Set()
     playlistUris.value = new Set()
@@ -211,6 +269,8 @@ export const useDataStore = defineStore('data', () => {
   return {
     // files & loading state
     files,
+    skippedFiles,
+    skippedEntryCount,
     entries,
     isLoading,
     fileCount,
@@ -229,6 +289,11 @@ export const useDataStore = defineStore('data', () => {
     listeningTimeByDay,
     uniqueTrackCount,
     favouriteHour,
+    monthLabels,
+    entriesForMonth,
+    hourlyForMonth,
+    listeningHoursForMonth,
+    favouriteHourForMonth,
 
     // listening time, split by library/playlists vs algorithm & other
     listeningTimeHoursLibrary,

@@ -246,6 +246,19 @@ const dayPolarOptions = computed(() => {
       <BanCard label="Favourite time of day" :value="datastore.favouriteHour ?? '-'"/>
     </div>
 
+    <template v-if="datastore.hasLibraryData">
+      <div class="grid flex-1 grid-cols-1 gap-4 mb-4">
+        <Card class="flex flex-col">
+          <CardHeader><CardTitle>Listening over time</CardTitle></CardHeader>
+          <CardContent class="relative flex-1">
+            <div class="h-72 p-4 pt-0">
+              <Line v-if="stackedBarData" :key="`stacked-bar-${isDark}`" :data="stackedBarData" :options="stackedBarOptions" />
+              <p v-else class="text-muted-foreground text-center text-sm">No data available.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
     <div class="grid flex-1 grid-cols-1 gap-4 mb-6" v-if="datastore.hasLibraryData">
       <Card class="flex flex-col">
         <CardHeader><CardTitle>Listening archetype</CardTitle></CardHeader>
@@ -268,19 +281,6 @@ const dayPolarOptions = computed(() => {
         <CardHeader><CardTitle>Listening archetype cannot be calculated without library and playlist files</CardTitle></CardHeader>
         </Card>
     </div>
-
-    <template v-if="datastore.hasLibraryData">
-      <div class="grid flex-1 grid-cols-1 gap-4 mb-4">
-        <Card class="flex flex-col">
-          <CardHeader><CardTitle>Listening over time</CardTitle></CardHeader>
-          <CardContent class="relative flex-1">
-            <div class="h-72 p-4 pt-0">
-              <Line v-if="stackedBarData" :key="`stacked-bar-${isDark}`" :data="stackedBarData" :options="stackedBarOptions" />
-              <p v-else class="text-muted-foreground text-center text-sm">No data available.</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       <div class="grid flex-1 grid-cols-2 gap-4 mb-4">
         <Card class="flex flex-col">

@@ -24,6 +24,11 @@ const router = createRouter({
       name: 'interviewer',
       component: () => import('@/views/InterviewerView.vue'),
     },
+    {
+      path: '/myspotify',
+      name: 'myspotify',
+      component: () => import('@/views/ParticipantView.vue'),
+    },
   ],
 })
 
