@@ -119,7 +119,9 @@ which is authoritatively re-validated on the backend.
 ## Out of scope (noted, deferred)
 
 - Mediaflux sync job (scheduling, idempotency, `stored`→`complete`).
-- Admin UI for code management (API + seed file suffice for now).
+- ~~Admin UI for code management~~ — delivered via sqladmin at `/admin`
+  (`app/admin_panel.py`): CRUD over codes with a normalisation hook, a
+  "Reload from seed file" action, and read-only donation/audit views.
 - General SQLite migration strategy (Alembic/startup migration) — deployment-phase;
   this feature adds no columns and is developed against a fresh DB.
 - Pre-existing donate robustness (file placed on disk before DB commit with no

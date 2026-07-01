@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.admin_panel import create_admin
 from app.db import init_db, make_engine, session_maker
 from app.deps import get_settings
 from app.ratelimit import attach_limiter
@@ -21,7 +22,7 @@ async def lifespan(app: FastAPI):
 
     # Seed the participant-code whitelist from the configured file, if present.
     path = settings.participant_codes_file
-    if path is not None and path.exists():
+    if path is not None and path.is_file():
         Session = session_maker(engine)
         async with Session() as s:
             summary, errors = await load_codes_from_file(s, path)
@@ -50,6 +51,9 @@ def create_app() -> FastAPI:
     app.include_router(codes.router)
     app.include_router(donate.router)
     app.include_router(admin.router)
+
+    # Browser admin panel at /admin (separate from the /api/admin JSON API).
+    create_admin(app, make_engine(settings.database_url), settings)
     return app
 
 

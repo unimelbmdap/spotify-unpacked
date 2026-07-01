@@ -46,7 +46,7 @@ async def reload_codes(
     settings: Settings = Depends(get_settings),
 ):
     path = settings.participant_codes_file
-    if path is None or not path.exists():
+    if path is None or not path.is_file():
         raise HTTPException(
             status_code=404,
             detail="No participant codes file configured or file missing",

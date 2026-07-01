@@ -8,7 +8,10 @@ Plan A**; this is a checklist for the follow-up.
 
 - Place behind a reverse proxy (Caddy / nginx / cloud LB) terminating TLS.
 - Enforce `client_max_body_size 200M` (or platform equivalent) at the proxy.
-- Restrict `/api/admin/*` to UoM IP ranges at the proxy or via a firewall rule.
+- Restrict `/api/admin/*` **and** `/admin` (the sqladmin browser panel) to UoM IP
+  ranges at the proxy or via a firewall rule.
+- Set `ADMIN_SESSION_SECRET` to an independent random value (used to sign the
+  `/admin` session cookie); do not rely on the `IP_HASH_SALT` fallback in prod.
 - Inject `MEDIAFLUX_TOKEN`, `IP_HASH_SALT`, `ADMIN_PASSWORD` from a secret
   store, never from a committed file.
 - Set `APP_ALLOWED_ORIGINS` to the production SPA origin only.

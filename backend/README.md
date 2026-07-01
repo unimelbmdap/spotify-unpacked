@@ -48,6 +48,10 @@ case-insensitively, and stored in the `participant_codes` table.
   donate page's up-front check (rate-limited by `RATE_LIMIT_VALIDATE`). The
   authoritative check is the atomic reservation done at `POST /api/donate`.
 - **Admin API:** `POST/GET/PATCH /api/admin/codes` still manage codes directly.
+- **Admin panel:** a browser UI at `/admin` (sqladmin) for CRUD over codes plus a
+  "Reload from seed file" action, and read-only views of donations and the audit
+  log. Log in with `ADMIN_USERNAME`/`ADMIN_PASSWORD`. Restrict `/admin` to trusted
+  IPs at the reverse proxy, same as `/api/admin/*`.
 
 See `docs/superpowers/specs/2026-07-01-participant-code-whitelist-design.md` for
 this feature's design and `local/2026-04-30-mediaflux-donation-design.md` for the

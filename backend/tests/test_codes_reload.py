@@ -56,3 +56,19 @@ def test_reload_imports_new_and_updates_existing(client, admin_headers, seed_fil
 
 def test_reload_requires_admin_and_csrf(client):
     assert client.post("/api/admin/codes/reload").status_code in (400, 401)
+
+
+def test_empty_codes_file_env_does_not_crash_startup(monkeypatch, tmp_path):
+    # An empty PARTICIPANT_CODES_FILE must disable seeding, not resolve to "."
+    # (a directory) and crash startup.
+    monkeypatch.setenv("IP_HASH_SALT", "x" * 64)
+    monkeypatch.setenv("ADMIN_PASSWORD", "hunter2hunter")
+    monkeypatch.setenv("DATABASE_URL", f"sqlite+aiosqlite:///{tmp_path/'t.db'}")
+    monkeypatch.setenv("PARTICIPANT_CODES_FILE", "")
+    get_settings.cache_clear()
+    from app import deps
+
+    deps._engine_cache.clear()
+    app = create_app()
+    with TestClient(app) as c:
+        assert c.get("/api/codes/UNKNOWN-CODE").json() == {"valid": False}

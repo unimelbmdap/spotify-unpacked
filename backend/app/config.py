@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     # Admin
     admin_username: str = "admin"
     admin_password: str = Field(min_length=8)
+    # Secret for signing the /admin panel session cookie. Falls back to
+    # IP_HASH_SALT when empty; set explicitly in production.
+    admin_session_secret: str = ""
 
     # Consent
     consent_version: str = "v1.0"
@@ -69,6 +72,15 @@ class Settings(BaseSettings):
     # Rate limit for the public code-validation endpoint. Kept stricter than
     # donate to blunt code-guessing since the endpoint reveals validity.
     rate_limit_validate: str = "20/minute"
+
+    @field_validator("participant_codes_file", mode="before")
+    @classmethod
+    def blank_codes_file_is_none(cls, v: object) -> object:
+        # An empty/whitespace env value disables seeding; otherwise it would
+        # coerce to Path(".") (a directory) and crash the startup loader.
+        if v is None or (isinstance(v, str) and v.strip() == ""):
+            return None
+        return v
 
     @field_validator("ip_hash_salt")
     @classmethod

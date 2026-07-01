@@ -16,6 +16,14 @@ def test_settings_defaults_loadable(monkeypatch):
     assert s.mediaflux_client == "stub"
 
 
+def test_participant_codes_file_empty_string_becomes_none(monkeypatch):
+    monkeypatch.setenv("IP_HASH_SALT", "x" * 64)
+    monkeypatch.setenv("ADMIN_PASSWORD", "hunter2hunter")
+    monkeypatch.setenv("PARTICIPANT_CODES_FILE", "")
+    s = Settings()
+    assert s.participant_codes_file is None
+
+
 def test_settings_rejects_short_salt(monkeypatch):
     monkeypatch.setenv("IP_HASH_SALT", "tooshort")
     monkeypatch.setenv("ADMIN_PASSWORD", "hunter2hunter")
