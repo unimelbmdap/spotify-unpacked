@@ -17,11 +17,35 @@ const colourMode = useColorMode({
   emitAuto: true,
   storageKey: 'spotify-unpacked-colour-mode',
 })
+
+const navLinks = [
+  { to: '/', name: 'dashboard', label: 'Upload' },
+  { to: '/interviewer', name: 'interviewer', label: 'Interviewer' },
+  { to: '/myspotify', name: 'myspotify', label: 'Participant' },
+]
 </script>
 
 <template>
   <header class="bg-background border-b flex h-12 shrink-0 items-center justify-between px-4">
-    <span class="text-base font-semibold">Spotify Unpacked</span>
+    <div class="flex items-center gap-6">
+      <span class="text-base font-semibold">Spotify Unpacked</span>
+
+      <nav class="flex items-center gap-4">
+        <RouterLink
+          v-for="link in navLinks"
+          :key="link.name"
+          :to="link.to"
+          class="text-sm transition-colors"
+          :class="
+            $route.name === link.name
+              ? 'text-foreground font-medium'
+              : 'text-muted-foreground hover:text-foreground'
+          "
+        >
+          {{ link.label }}
+        </RouterLink>
+      </nav>
+    </div>
 
     <div class="flex items-center gap-2">
       <DropdownMenu>
