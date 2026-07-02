@@ -51,10 +51,11 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    environment:
-      SITE_ADDRESS: "${SITE_ADDRESS}"
-      ACME_EMAIL: "${ACME_EMAIL}"
-      ADMIN_ALLOWED_IPS: "${ADMIN_ALLOWED_IPS}"
+    # env_file injects values literally (no interpolation), so the bcrypt
+    # BASIC_AUTH_HASH (which contains `$`) is passed through intact. Caddy reads
+    # SITE_ADDRESS / ACME_EMAIL / ADMIN_ALLOWED_IPS / BASIC_AUTH_* from here.
+    env_file:
+      - .env
     volumes:
       # Persist Caddy's ACME certs/state so it doesn't re-issue on every restart.
       - caddy-data:/data

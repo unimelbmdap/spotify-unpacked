@@ -3,6 +3,17 @@
 	email {$ACME_EMAIL}
 }
 
+# Basic-auth gate for the PUBLIC site during the pre-launch phase. Applied to
+# the SPA and the public API only (NOT the admin surfaces: /api/admin needs its
+# own Authorization header to reach the backend, and /admin is already
+# IP-restricted with its own login). Set BASIC_AUTH_USER and BASIC_AUTH_HASH
+# (a bcrypt hash from `caddy hash-password`).
+(basicgate) {
+	basic_auth {
+		{$BASIC_AUTH_USER} {$BASIC_AUTH_HASH}
+	}
+}
+
 # SITE_ADDRESS is the public hostname (e.g. donate.example.edu.au). When it is
 # a real domain with :80/:443 reachable, Caddy auto-provisions a TLS cert.
 #
@@ -37,12 +48,14 @@
 
 	# --- Public API (donate + code validation) ---
 	handle /api/* {
+		import basicgate
 		reverse_proxy backend:8000
 	}
 
 	# --- Everything else: the built SPA, with history-mode fallback so deep
 	# links like /donate resolve to index.html instead of 404ing. ---
 	handle {
+		import basicgate
 		root * /srv
 		try_files {path} /index.html
 		file_server
