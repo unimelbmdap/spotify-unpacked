@@ -8,7 +8,7 @@ from sqlmodel import select
 
 from app.db import init_db, make_engine, session_maker
 from app.models import CodeStatus, Donation, DonationStatus, ParticipantCode
-from app.services.codes import generate_codes
+from app.services.codes import generate_codes, get_by_code
 from app.services.donations import (
     CodeUnavailable,
     UploadFile,
@@ -45,7 +45,7 @@ async def test_reserve_code_increments_uses_atomically(session):
     assert await reserve_code(session, code=c.code) is True
     await session.commit()
 
-    refreshed = await session.get(ParticipantCode, c.code)
+    refreshed = await get_by_code(session, c.code)
     assert refreshed.uses == 1
 
 
@@ -93,7 +93,7 @@ async def test_perform_donation_stores_bundle_and_sidecar(session, tmp_path):
     )
 
     await session.commit()
-    refreshed = await session.get(ParticipantCode, c.code)
+    refreshed = await get_by_code(session, c.code)
     [donation] = (await session.exec(select(Donation))).all()
 
     assert refreshed.uses == 1
@@ -156,7 +156,7 @@ async def test_perform_donation_releases_code_and_marks_failed_on_storage_error(
         )
 
     await session.commit()
-    refreshed = await session.get(ParticipantCode, c.code)
+    refreshed = await get_by_code(session, c.code)
     [donation] = (await session.exec(select(Donation))).all()
 
     # Code use was released; donation marked failed.

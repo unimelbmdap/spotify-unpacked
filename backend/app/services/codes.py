@@ -23,6 +23,17 @@ def normalise_code(code: str) -> str:
     return code.strip().upper()
 
 
+async def get_by_code(session: AsyncSession, code: str) -> ParticipantCode | None:
+    """Fetch a participant-code row by its (normalised) code value.
+
+    `code` is a UNIQUE column but not the primary key, so look it up by column
+    rather than `session.get`, which is keyed on the surrogate `id`.
+    """
+    nc = normalise_code(code)
+    result = await session.exec(select(ParticipantCode).where(ParticipantCode.code == nc))
+    return result.first()
+
+
 async def generate_codes(
     session: AsyncSession,
     *,
@@ -69,7 +80,7 @@ async def import_codes(
         if not _CODE_RE.fullmatch(nc) or entry.max_uses < 1:
             skipped += 1
             continue
-        existing = await session.get(ParticipantCode, nc)
+        existing = await get_by_code(session, nc)
         if existing is None:
             session.add(
                 ParticipantCode(
@@ -111,7 +122,7 @@ async def is_code_valid(session: AsyncSession, code: str) -> bool:
     NOT reserve — the authoritative atomic reservation happens in
     ``donations.reserve_code`` at submit time.
     """
-    obj = await session.get(ParticipantCode, normalise_code(code))
+    obj = await get_by_code(session, code)
     return obj is not None and obj.status == CodeStatus.active and obj.uses < obj.max_uses
 
 
@@ -120,7 +131,7 @@ async def list_codes(session: AsyncSession) -> list[ParticipantCode]:
 
 
 async def revoke_code(session: AsyncSession, *, code: str) -> ParticipantCode | None:
-    obj = await session.get(ParticipantCode, normalise_code(code))
+    obj = await get_by_code(session, code)
     if obj is None:
         return None
     obj.status = CodeStatus.revoked
@@ -135,7 +146,7 @@ async def update_code(
     max_uses: int | None = None,
     admin_label: str | None = None,
 ) -> ParticipantCode | None:
-    obj = await session.get(ParticipantCode, normalise_code(code))
+    obj = await get_by_code(session, code)
     if obj is None:
         return None
     if max_uses is not None:

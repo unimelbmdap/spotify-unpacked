@@ -34,14 +34,16 @@ def prepare_code_data(data: dict[str, Any], *, is_created: bool) -> dict[str, An
     """Normalise + validate participant-code form data before it is saved.
 
     sqladmin writes straight to the table, bypassing the service layer, so we
-    reapply the same rules here: trim + uppercase the code, enforce the
-    format, and fill server-managed fields on create. Raises ValueError on a
-    malformed code so the bad row is never written.
+    reapply the same rules here: trim + uppercase the code and enforce the
+    format (on create AND edit, since the code is now editable), and fill
+    server-managed fields on create. Raises ValueError on a malformed code so
+    the bad row is never written.
     """
-    if is_created:
-        data["code"] = normalise_code(str(data.get("code", "")))
+    if "code" in data and data["code"] is not None:
+        data["code"] = normalise_code(str(data["code"]))
         if not _CODE_RE.fullmatch(data["code"]):
             raise ValueError("Code must be 6-32 characters of letters, digits, '-' or '_'.")
+    if is_created:
         data.setdefault("uses", 0)
         data["created_at"] = datetime.now(timezone.utc)
     return data
@@ -85,11 +87,10 @@ class ParticipantCodeAdmin(ModelView, model=ParticipantCode):
     ]
     column_searchable_list = [ParticipantCode.code, ParticipantCode.admin_label]
     column_sortable_list = [ParticipantCode.code, ParticipantCode.created_at, ParticipantCode.status]
-    # `code` is the primary key: it must be typed on create, so include the PK
-    # in forms (sqladmin excludes PKs by default), and keep it fixed on edit.
-    form_include_pk = True
+    # `code` is a normal (unique) column now, so it shows and is editable.
+    # `uses`/`created_at` are server-managed and deliberately left off the forms.
     form_create_rules = ["code", "status", "max_uses", "admin_label"]
-    form_edit_rules = ["status", "max_uses", "admin_label"]
+    form_edit_rules = ["code", "status", "max_uses", "admin_label"]
 
     async def on_model_change(
         self, data: dict[str, Any], model: Any, is_created: bool, request: Request

@@ -35,6 +35,20 @@ def test_prepare_code_data_rejects_malformed_code():
         prepare_code_data({"code": "no"}, is_created=True)
 
 
+def test_prepare_code_data_normalises_code_on_edit():
+    # Code is editable now: normalise + validate on edit too, but don't reset
+    # server-managed fields.
+    data = prepare_code_data({"code": " new-code-9 "}, is_created=False)
+    assert data["code"] == "NEW-CODE-9"
+    assert "created_at" not in data
+    assert "uses" not in data
+
+
+def test_prepare_code_data_rejects_malformed_code_on_edit():
+    with pytest.raises(ValueError):
+        prepare_code_data({"code": "bad code!"}, is_created=False)
+
+
 @pytest.fixture
 def client(monkeypatch, tmp_path):
     monkeypatch.setenv("IP_HASH_SALT", "x" * 64)

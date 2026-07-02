@@ -64,8 +64,6 @@ async def list_codes(db: AsyncSession = Depends(get_db)):
 
 @router.patch("/codes/{code}", response_model=CodeResponse)
 async def patch_code(code: str, req: CodeUpdateRequest, db: AsyncSession = Depends(get_db)):
-    from app.models import ParticipantCode
-
     code = codes_service.normalise_code(code)
     updated = None
     if req.status == "revoked":
@@ -76,7 +74,7 @@ async def patch_code(code: str, req: CodeUpdateRequest, db: AsyncSession = Depen
         ) or updated
     if updated is None:
         # Either the code doesn't exist, or no fields were given.
-        existing = await db.get(ParticipantCode, code)
+        existing = await codes_service.get_by_code(db, code)
         if existing is None:
             raise HTTPException(status_code=404, detail="Unknown code")
         updated = existing

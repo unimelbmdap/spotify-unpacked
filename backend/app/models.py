@@ -19,7 +19,10 @@ class DonationStatus(str, Enum):
 class ParticipantCode(SQLModel, table=True):
     __tablename__ = "participant_codes"
 
-    code: str = Field(primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
+    # Human-friendly code. Unique (not the PK) so it can be edited/re-normalised
+    # without a data migration; donations reference it via this unique column.
+    code: str = Field(index=True, unique=True)
     status: CodeStatus = Field(default=CodeStatus.active)
     max_uses: int = Field(default=1)
     uses: int = Field(default=0)

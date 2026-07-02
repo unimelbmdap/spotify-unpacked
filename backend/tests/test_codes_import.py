@@ -7,6 +7,7 @@ from app.services.codes import (
     import_codes,
     is_code_valid,
     normalise_code,
+    get_by_code,
 )
 from app.services.donations import reserve_code
 
@@ -36,7 +37,7 @@ async def test_import_codes_inserts_new(session):
     )
     await session.commit()
     assert summary == {"added": 2, "updated": 0, "skipped": 0}
-    obj = await session.get(ParticipantCode, "MDAP-2026-001")
+    obj = await get_by_code(session, "MDAP-2026-001")
     assert obj is not None
     assert obj.status == CodeStatus.active
     assert obj.max_uses == 1
@@ -47,7 +48,7 @@ async def test_import_codes_inserts_new(session):
 async def test_import_codes_idempotent_preserves_uses_and_status(session):
     await import_codes(session, [CodeSeedEntry(code="AAA-111", max_uses=2)])
     await session.commit()
-    obj = await session.get(ParticipantCode, "AAA-111")
+    obj = await get_by_code(session, "AAA-111")
     obj.uses = 1
     obj.status = CodeStatus.revoked
     session.add(obj)
@@ -60,7 +61,7 @@ async def test_import_codes_idempotent_preserves_uses_and_status(session):
     await session.commit()
     assert summary == {"added": 0, "updated": 1, "skipped": 0}
 
-    obj = await session.get(ParticipantCode, "AAA-111")
+    obj = await get_by_code(session, "AAA-111")
     assert obj.uses == 1  # preserved
     assert obj.status == CodeStatus.revoked  # preserved
     assert obj.max_uses == 5  # updated
@@ -99,7 +100,7 @@ async def test_is_code_valid_false_for_unknown_revoked_exhausted(session):
 
     assert await is_code_valid(session, "UNKNOWN-1") is False
 
-    obj = await session.get(ParticipantCode, "REV-0001")
+    obj = await get_by_code(session, "REV-0001")
     obj.status = CodeStatus.revoked
     session.add(obj)
     await session.commit()
