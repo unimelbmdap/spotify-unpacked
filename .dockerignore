@@ -1,0 +1,23 @@
+# Context for the web (Caddy) image build = repo root. Keep it lean and avoid
+# leaking local state into the image build. The backend image has its own
+# context (./backend) with its own .dockerignore.
+node_modules
+dist
+.git
+.github
+.venv
+*.log
+coverage
+e2e
+playwright-report
+test-results
+
+# Backend is built from its own context, not needed here.
+backend
+
+# Local-only / editor / docs.
+.vscode
+.idea
+local
+explorations
+docs

@@ -1,0 +1,50 @@
+{
+	# Email for Let's Encrypt registration + expiry notices.
+	email {$ACME_EMAIL}
+}
+
+# SITE_ADDRESS is the public hostname (e.g. donate.example.edu.au). When it is
+# a real domain with :80/:443 reachable, Caddy auto-provisions a TLS cert.
+#
+# Alternatives (see deploy/README.md):
+#   - UoM-provided cert: add `tls /etc/caddy/cert.pem /etc/caddy/key.pem`
+#     inside this block and mount the files in.
+#   - TLS terminated upstream (cloud load balancer): set SITE_ADDRESS to `:80`
+#     and remove the email global option.
+{$SITE_ADDRESS} {
+	# Cap request bodies to the backend's 200 MB donation limit, so oversize
+	# uploads are rejected at the edge before reaching FastAPI.
+	request_body {
+		max_size 200MB
+	}
+
+	encode zstd gzip
+
+	# --- Admin surfaces: /admin panel + /api/admin JSON API ---
+	# Restrict to trusted IP ranges (ADMIN_ALLOWED_IPS, space-separated CIDRs),
+	# then proxy to the backend. If behind another proxy/LB, switch `remote_ip`
+	# to `client_ip` and configure `trusted_proxies`.
+	@admin path /admin /admin/* /api/admin/*
+	handle @admin {
+		@blocked not remote_ip {$ADMIN_ALLOWED_IPS}
+		handle @blocked {
+			respond "Forbidden" 403
+		}
+		handle {
+			reverse_proxy backend:8000
+		}
+	}
+
+	# --- Public API (donate + code validation) ---
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+
+	# --- Everything else: the built SPA, with history-mode fallback so deep
+	# links like /donate resolve to index.html instead of 404ing. ---
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

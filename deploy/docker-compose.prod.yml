@@ -1,0 +1,64 @@
+# Production stack: backend (FastAPI + sqladmin) behind Caddy (TLS + SPA + proxy).
+# Run from this directory so deploy/.env is picked up:
+#   cd deploy && docker compose -f docker-compose.prod.yml up -d --build
+name: donation-prod
+
+services:
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    image: donation-backend:prod
+    restart: unless-stopped
+    # Secrets + config (IP_HASH_SALT, ADMIN_PASSWORD, ADMIN_SESSION_SECRET, …).
+    env_file:
+      - .env
+    environment:
+      # SQLite + donation bundles live on the persistent volume below.
+      DATABASE_URL: "sqlite+aiosqlite:////app/data/donations.db"
+      DONATIONS_STORAGE_DIR: "/app/data/donations"
+      # Optional whitelist seed file; if absent, startup no-ops (manage codes
+      # via the /admin panel). Drop a participant_codes.csv on the volume to use.
+      PARTICIPANT_CODES_FILE: "/app/data/participant_codes.csv"
+      # Same-origin in production, but set for correctness / any cross-origin use.
+      APP_ALLOWED_ORIGINS: "${SITE_URL}"
+    volumes:
+      - donation-data:/app/data
+    # Not published: only Caddy reaches the backend, over the internal network.
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  caddy:
+    build:
+      context: ..
+      dockerfile: deploy/web.Dockerfile
+      args:
+        # Same-origin: the SPA calls /api and /admin on this host.
+        VITE_API_BASE_URL: ""
+    image: donation-web:prod
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: "${SITE_ADDRESS}"
+      ACME_EMAIL: "${ACME_EMAIL}"
+      ADMIN_ALLOWED_IPS: "${ADMIN_ALLOWED_IPS}"
+    volumes:
+      # Persist Caddy's ACME certs/state so it doesn't re-issue on every restart.
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  donation-data:
+  caddy-data:
+  caddy-config:
