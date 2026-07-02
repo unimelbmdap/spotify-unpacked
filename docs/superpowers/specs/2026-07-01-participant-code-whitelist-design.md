@@ -126,6 +126,16 @@ which is authoritatively re-validated on the backend.
   this feature adds no columns and is developed against a fresh DB.
 - Pre-existing donate robustness (file placed on disk before DB commit with no
   cleanup on commit failure) — flagged by review, not introduced here.
+- **Reuse landing-page files on the donate page (follow-up).** The idea is that
+  files loaded on the main landing page are already available, so the donor need
+  not re-select them on `/donate`. Not yet feasible: the data store
+  (`src/stores/data.ts`, `loadFiles`/`addFiles`) keeps only `{name, size}` and
+  discards the raw `File` objects, and file parsing there is still a TODO. For
+  now the donate page uses its own file picker (`DonateView.vue`) as a working
+  placeholder. When the landing-page loading is finalised to retain raw `File[]`
+  in shared state, have `DonateView` read from the store (pre-fill + skip the
+  picker when files are present, picker as fallback), and decouple
+  `FileDropZone` from the store at the same time. Coordinate with colleague.
 
 ## Codex review outcome
 
