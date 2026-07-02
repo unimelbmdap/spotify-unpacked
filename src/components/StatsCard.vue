@@ -6,38 +6,10 @@ import { fileTypes } from '@/lib/fileTypes'
 
 const dataStore = useDataStore()
 
-const fileCounts = computed(() => {
-  const counts = {
-    streaming: 0,
-    streaming2025: 0,
-    library: 0,
-    playlist: 0,
-    unrecognised: 0,
-  }
-
-  dataStore.files.forEach((file) => {
-    const nameLower = file.name.toLowerCase()
-    if (nameLower.includes('streaming_history')) {
-      counts.streaming++
-      if (nameLower.includes('2025')) {
-        counts.streaming2025++
-      }
-    } else if (nameLower.includes('library')) {
-      counts.library++
-    } else if (nameLower.includes('playlist')) {
-      counts.playlist++
-    } else {
-      counts.unrecognised++
-    }
-  })
-
-  return counts
-})
-
-
 const completionPercentage = computed(() => {
-  const done = Object.values(dataStore.fileTypeStatus).filter(Boolean).length
-  return Math.round((done / fileTypes.length) * 100)
+  const requiredTypes = fileTypes.filter((ft) => !ft.optional)
+  const done = requiredTypes.filter((ft) => dataStore.fileTypeStatus[ft.key]).length
+  return Math.round((done / requiredTypes.length) * 100)
 })
 </script>
 

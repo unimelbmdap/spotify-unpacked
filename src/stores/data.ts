@@ -1,8 +1,14 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import type { ChartData } from 'chart.js'
-import { parseStreamingFile, type MusicEntry } from '@/lib/parser'
+import { parseStreamingFile, parseLibraryFile, parsePlaylistFile, entryKey, type MusicEntry } from '@/lib/parser'
 import { classifyFile, type FileTypeKey, fileTypes } from '@/lib/fileTypes'
+import {
+  archetypeConfig,
+  bandScore,
+  responsiveReasonEndValues,
+  responsiveReasonStartValues,
+} from '@/lib/archetypeConfig'
 
 export interface LoadedFile {
   name: string
@@ -10,106 +16,77 @@ export interface LoadedFile {
   type: FileTypeKey | 'unrecognised'
 }
 
-const dummyChartData: Record<string, ChartData> = {
-  bar: {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [
-      { label: 'Streams', backgroundColor: '#6366f1', data: [120, 190, 80, 140, 200, 160] },
-    ],
-  },
-  line: {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [
-      { label: 'Listeners', borderColor: '#6366f1', data: [65, 59, 80, 81, 56, 72], fill: false },
-    ],
-  },
-  pie: {
-    labels: ['Pop', 'Rock', 'Jazz', 'Hip-Hop', 'Electronic'],
-    datasets: [
-      {
-        backgroundColor: ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6'],
-        data: [30, 20, 15, 25, 10],
-      },
-    ],
-  },
-  doughnut: {
-    labels: ['Mobile', 'Desktop', 'Tablet', 'Smart TV'],
-    datasets: [
-      { backgroundColor: ['#6366f1', '#ec4899', '#f59e0b', '#10b981'], data: [45, 30, 15, 10] },
-    ],
-  },
-  radar: {
-    labels: ['Energy', 'Danceability', 'Valence', 'Acousticness', 'Tempo', 'Speechiness'],
-    datasets: [
-      {
-        label: 'Track A',
-        borderColor: '#6366f1',
-        backgroundColor: 'rgba(99,102,241,0.2)',
-        data: [80, 65, 70, 30, 55, 40],
-      },
-      {
-        label: 'Track B',
-        borderColor: '#ec4899',
-        backgroundColor: 'rgba(236,72,153,0.2)',
-        data: [50, 80, 60, 70, 45, 30],
-      },
-    ],
-  },
-  polarArea: {
-    labels: ['Acousticness', 'Danceability', 'Energy', 'Instrumentalness', 'Liveness'],
-    datasets: [
-      {
-        backgroundColor: ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6'],
-        data: [70, 85, 60, 30, 45],
-      },
-    ],
-  },
-  bubble: {
-    datasets: [
-      {
-        label: 'Playlist A',
-        backgroundColor: 'rgba(99,102,241,0.5)',
-        data: [
-          { x: 10, y: 20, r: 15 },
-          { x: 25, y: 35, r: 10 },
-          { x: 40, y: 10, r: 20 },
-        ],
-      },
-      {
-        label: 'Playlist B',
-        backgroundColor: 'rgba(236,72,153,0.5)',
-        data: [
-          { x: 15, y: 40, r: 12 },
-          { x: 30, y: 25, r: 18 },
-          { x: 50, y: 30, r: 8 },
-        ],
-      },
-    ],
-  },
-  scatter: {
-    datasets: [
-      {
-        label: 'Tempo vs Energy',
-        backgroundColor: '#6366f1',
-        data: [
-          { x: 80, y: 40 },
-          { x: 100, y: 60 },
-          { x: 120, y: 75 },
-          { x: 140, y: 55 },
-          { x: 160, y: 85 },
-          { x: 90, y: 50 },
-          { x: 110, y: 70 },
-        ],
-      },
-    ],
-  },
+function sumMs(subset: MusicEntry[]) {
+  return subset.reduce((sum, e) => sum + e.msPlayed, 0)
+}
+
+function msToHours(ms: number, decimals = 0) {
+  const factor = 10 ** decimals
+  return Math.round((ms / 1000 / 60 / 60) * factor) / factor
+}
+
+function byHour(subset: MusicEntry[]) {
+  const totals = Array(24).fill(0)
+  for (const entry of subset) {
+    const hour = new Date(entry.ts).getHours()
+    totals[hour] += entry.msPlayed
+  }
+  return totals.map(ms => msToHours(ms, 1))
+}
+
+function byDay(subset: MusicEntry[]) {
+  const totals = Array(7).fill(0) // Mon=0 … Sun=6
+  for (const entry of subset) {
+    const dow = new Date(entry.ts).getDay() // 0=Sun, 1=Mon … 6=Sat
+    const idx = dow === 0 ? 6 : dow - 1
+    totals[idx] += entry.msPlayed
+  }
+  return totals.map(ms => msToHours(ms, 1))
+}
+
+function monthKeyAndLabel(ts: string) {
+  const date = new Date(ts)
+  const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+  const label = new Date(date.getFullYear(), date.getMonth()).toLocaleString('default', { month: 'short', year: 'numeric' })
+  return { key, label }
+}
+
+function groupByMonth(subset: MusicEntry[]) {
+  const groups = new Map<string, { label: string; entries: MusicEntry[] }>()
+  for (const entry of subset) {
+    const { key, label } = monthKeyAndLabel(entry.ts)
+    let group = groups.get(key)
+    if (!group) {
+      group = { label, entries: [] }
+      groups.set(key, group)
+    }
+    group.entries.push(entry)
+  }
+  return [...groups.keys()]
+    .sort((a, b) => a.localeCompare(b))
+    .map((key) => groups.get(key)!)
+}
+
+function byMonth(subset: MusicEntry[]) {
+  return Object.fromEntries(
+    groupByMonth(subset).map(({ label, entries }) => [
+      label,
+      entries.reduce((sum, e) => sum + Math.round(e.msPlayed / 1000 / 60), 0),
+    ])
+  )
 }
 
 export const useDataStore = defineStore('data', () => {
   const entries = ref<MusicEntry[]>([])
+  const seenEntries = ref<Set<string>>(new Set())
   const files = ref<LoadedFile[]>([])
+  const skippedFiles = ref<string[]>([])
+  const skippedEntryCount = ref(0)
   const isLoading = ref(false)
-  const chartData = ref<Record<string, ChartData>>({ ...dummyChartData })
+  const chartData = ref<Record<string, ChartData>>({})
+
+  const playlistUris = ref<Set<string>>(new Set())
+  const libraryUris = ref<Set<string>>(new Set())
 
   const fileCount = computed(() => files.value.length)
   const hasData = computed(() => files.value.length > 0)
@@ -117,58 +94,226 @@ export const useDataStore = defineStore('data', () => {
   function getChartData(chartType: string): ChartData | undefined {
     return chartData.value[chartType]
   }
-async function loadFiles(rawFiles: File[]) {
-  isLoading.value = true
-  try {
 
-    for (const file of rawFiles) {
-      try{
-      const text = await file.text()
-      const json = JSON.parse(text)
-      const parsed = parseStreamingFile(json)
-      entries.value.push(...parsed)
-      files.value.push({ name: file.name, size: file.size, type: classifyFile(file.name) })
-      } catch {
-        // skip files that can't be parsed
+  async function loadFiles(rawFiles: File[]) {
+    isLoading.value = true
+    try {
+      for (const file of rawFiles) {
+        try {
+          const text = await file.text()
+          const json = JSON.parse(text)
+          const fileType = classifyFile(file.name)
+          const isDuplicate = files.value.some((f) => f.name === file.name && f.size === file.size)
+          if (isDuplicate) {
+            skippedFiles.value.push(file.name)
+          } else {
+            if (fileType === 'listening') {
+              const newEntries = parseStreamingFile(json).filter((entry) => {
+                const key = entryKey(entry)
+                if (seenEntries.value.has(key)) {
+                  skippedEntryCount.value++
+                  return false
+                }
+                seenEntries.value.add(key)
+                return true
+              })
+              entries.value.push(...newEntries)
+            } else if (fileType === 'library') {
+              libraryUris.value = parseLibraryFile(json)
+            } else if (fileType === 'playlists') {
+              playlistUris.value = parsePlaylistFile(json)
+            }
+            files.value.push({ name: file.name, size: file.size, type: fileType })
+          }
+        } catch {
+          // skip files that can't be parsed
+        }
       }
+    } finally {
+      isLoading.value = false
     }
   }
-  finally {
-  isLoading.value = false}
-}
 
-const fileTypeStatus = computed(() => {
-  const uploaded = new Set(files.value.map((f) => f.type))
-  return Object.fromEntries(
-    fileTypes.map((ft) => [ft.key, uploaded.has(ft.key)])
-  ) as Record<FileTypeKey, boolean>
-})
+  const fileTypeStatus = computed(() => {
+    const uploaded = new Set(files.value.map((f) => f.type))
+    return Object.fromEntries(
+      fileTypes.map((ft) => [ft.key, uploaded.has(ft.key)])
+    ) as Record<FileTypeKey, boolean>
+  })
 
-const listeningTimeHours = computed(() => {
-  const totalMs = entries.value.reduce((sum, e) => sum + e.msPlayed, 0)
-  return Math.round(totalMs / 1000 / 60 / 60)
-})
+  const listeningTimeHours = computed(() => msToHours(sumMs(entries.value)))
+  const listeningTimeByMonth = computed(() => byMonth(entries.value))
+  const listeningTimeByHour = computed(() => byHour(entries.value))
 
-const uniqueTrackCount = computed(() => {
-  return new Set(entries.value.map((e) => e.trackUri)).size
-})
+  const monthlyGroups = computed(() => groupByMonth(entries.value))
+  const monthLabels = computed(() => monthlyGroups.value.map(g => g.label))
+  const entriesByMonth = computed(() =>
+    Object.fromEntries(monthlyGroups.value.map(g => [g.label, g.entries]))
+  )
 
-const favouriteHour = computed(() => {
-  const counts: Record<number, number> = {}
-  for (const entry of entries.value) {
-    const hour = new Date(entry.ts).getHours()
-    counts[hour] = (counts[hour] ?? 0) + 1
+  function entriesForMonth(label: string) {
+    return entriesByMonth.value[label] ?? []
   }
-  const topHour = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]
-  if (!topHour) return null
-  return new Date(0, 0, 0, Number(topHour[0])).toLocaleTimeString([], { hour: 'numeric', hour12: true })
-})
 
-function clear() {
-  files.value = []
-  entries.value = []
-  chartData.value = { ...dummyChartData }
-}
+  function hourlyForMonth(label: string) {
+    return byHour(entriesForMonth(label))
+  }
 
-  return { files, entries, isLoading, fileCount, fileTypeStatus, hasData, chartData, getChartData, loadFiles, clear, listeningTimeHours, uniqueTrackCount, favouriteHour }
+  function listeningHoursForMonth(label: string) {
+    return msToHours(sumMs(entriesForMonth(label)), 1)
+  }
+
+  const listeningTimeByDay = computed(() => byDay(entries.value))
+
+  const uniqueTrackCount = computed(() => new Set(entries.value.map((e) => e.trackUri)).size)
+
+  function favouriteHourOf(subset: MusicEntry[]) {
+    const counts: Record<number, number> = {}
+    for (const entry of subset) {
+      const hour = new Date(entry.ts).getHours()
+      counts[hour] = (counts[hour] ?? 0) + 1
+    }
+    const topHour = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]
+    if (!topHour) return null
+    return new Date(0, 0, 0, Number(topHour[0])).toLocaleTimeString([], { hour: 'numeric', hour12: true })
+  }
+
+  const favouriteHour = computed(() => favouriteHourOf(entries.value))
+
+  function favouriteHourForMonth(label: string) {
+    return favouriteHourOf(entriesForMonth(label))
+  }
+
+  const combinedLibraryUris = computed(() => new Set([...libraryUris.value, ...playlistUris.value]))
+  const hasLibraryData = computed(() => libraryUris.value.size > 0 && playlistUris.value.size > 0)
+
+  const libraryEntries = computed(() => entries.value.filter(e => combinedLibraryUris.value.has(e.trackUri)))
+  const otherEntries = computed(() => entries.value.filter(e => !combinedLibraryUris.value.has(e.trackUri)))
+
+  const listeningTimeHoursLibrary = computed(() => msToHours(sumMs(libraryEntries.value)))
+  const listeningTimeHoursOther = computed(() => msToHours(sumMs(otherEntries.value)))
+
+  const listeningTimePercentLibrary = computed(() => {
+    const total = sumMs(entries.value)
+    return total === 0 ? 0 : Math.round((sumMs(libraryEntries.value) / total) * 100)
+  })
+  const listeningTimePercentOther = computed(() => {
+    const total = sumMs(entries.value)
+    return total === 0 ? 0 : Math.round((sumMs(otherEntries.value) / total) * 100)
+  })
+
+  const listeningTimeByHourLibrary = computed(() => byHour(libraryEntries.value))
+  const listeningTimeByHourOther = computed(() => byHour(otherEntries.value))
+  const listeningTimeByDayLibrary = computed(() => byDay(libraryEntries.value))
+  const listeningTimeByDayOther = computed(() => byDay(otherEntries.value))
+  const listeningTimeByMonthLibrary = computed(() => byMonth(libraryEntries.value))
+  const listeningTimeByMonthOther = computed(() => byMonth(otherEntries.value))
+
+  const shuffleRate = computed(() => {
+    if (entries.value.length === 0) return 0
+    return entries.value.filter(e => e.shuffle === true).length / entries.value.length
+  })
+
+  const skipRate = computed(() => {
+    if (entries.value.length === 0) return 0
+    return entries.value.filter(e => e.skipped === true).length / entries.value.length
+  })
+
+  const responsiveReasonRate = computed(() => {
+    if (entries.value.length === 0) return 0
+    return entries.value.filter(e =>
+      responsiveReasonEndValues.includes(e.reasonEnd) || responsiveReasonStartValues.includes(e.reasonStart)
+    ).length / entries.value.length
+  })
+
+  const algorithmicRate = computed(() => {
+    const totalMs = sumMs(entries.value)
+    return totalMs === 0 ? 0 : sumMs(otherEntries.value) / totalMs
+  })
+
+  const receptiveness = computed(() => {
+    const cfg = archetypeConfig.receptiveness
+    return cfg.algorithmic.weight * bandScore(algorithmicRate.value, cfg.algorithmic)
+  })
+
+  const deliberate = computed(() => {
+    const cfg = archetypeConfig.deliberate
+    return (
+      cfg.shuffle.weight * bandScore(shuffleRate.value, cfg.shuffle) +
+      cfg.skip.weight * bandScore(skipRate.value, cfg.skip) +
+      cfg.reason.weight * bandScore(responsiveReasonRate.value, cfg.reason) +
+      cfg.algorithmic.weight * bandScore(algorithmicRate.value, cfg.algorithmic)
+    )
+  })
+
+  const responsiveness = computed(() => {
+    const cfg = archetypeConfig.responsiveness
+    return (
+      cfg.shuffle.weight * bandScore(shuffleRate.value, cfg.shuffle) +
+      cfg.skip.weight * bandScore(skipRate.value, cfg.skip) +
+      cfg.reason.weight * bandScore(responsiveReasonRate.value, cfg.reason)
+    )
+  })
+
+  function clear() {
+    files.value = []
+    skippedFiles.value = []
+    skippedEntryCount.value = 0
+    entries.value = []
+    seenEntries.value = new Set()
+    chartData.value = {}
+    libraryUris.value = new Set()
+    playlistUris.value = new Set()
+  }
+
+  return {
+    // files & loading state
+    files,
+    skippedFiles,
+    skippedEntryCount,
+    entries,
+    isLoading,
+    fileCount,
+    fileTypeStatus,
+    hasData,
+    hasLibraryData,
+    chartData,
+    getChartData,
+    loadFiles,
+    clear,
+
+    // listening time, overall & by period
+    listeningTimeHours,
+    listeningTimeByMonth,
+    listeningTimeByHour,
+    listeningTimeByDay,
+    uniqueTrackCount,
+    favouriteHour,
+    monthLabels,
+    entriesForMonth,
+    hourlyForMonth,
+    listeningHoursForMonth,
+    favouriteHourForMonth,
+
+    // listening time, split by library/playlists vs algorithm & other
+    listeningTimeHoursLibrary,
+    listeningTimeHoursOther,
+    listeningTimePercentLibrary,
+    listeningTimePercentOther,
+    listeningTimeByHourLibrary,
+    listeningTimeByHourOther,
+    listeningTimeByDayLibrary,
+    listeningTimeByDayOther,
+    listeningTimeByMonthLibrary,
+    listeningTimeByMonthOther,
+
+    // listening archetype scores
+    shuffleRate,
+    skipRate,
+    responsiveReasonRate,
+    algorithmicRate,
+    receptiveness,
+    responsiveness,
+    deliberate,
+  }
 })

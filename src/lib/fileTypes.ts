@@ -6,6 +6,7 @@ export const fileTypes = [
     file: 'Streaming_History_audio_yyyy-yyyy_n.json',
     why: 'Understand listening patterns across time and seasons.',
     pattern: /streaming_history/i,
+    optional: false,
   },
   {
     key: 'library',
@@ -14,6 +15,7 @@ export const fileTypes = [
     file: 'YourLibrary.json',
     why: 'Shows patterns of curation, how much of your listening patterns comes from your library vs Spotify algorithm',
     pattern: /yourlibrary/i,
+    optional: false,
   },
   {
     key: 'playlists',
@@ -22,6 +24,7 @@ export const fileTypes = [
     file: 'Playlist1.json',
     why: 'Analyse your curation habits and playlist listening patterns.',
     pattern: /playlist/i,
+    optional: false,
   },
   {
     key: 'search',
@@ -30,14 +33,16 @@ export const fileTypes = [
     file: 'SearchQueries.json',
     why: 'Reveals frequency of searches but we ignore the search terminology',
     pattern: /searchqueries/i,
+    optional: false,
   },
   {
     key: 'aidj',
-    label: 'AI DJ history',
+    label: 'AI DJ history (optional)',
     what: 'Tracks queued by Spotify\'s AI DJ feature.',
     file: 'AIDJQueue.json',
     why: 'Reveals what the algorithm thought you\'d enjoy and whether you actually listened.',
     pattern: /aidjqueue/i,
+    optional: true,
   },
 ] as const
 

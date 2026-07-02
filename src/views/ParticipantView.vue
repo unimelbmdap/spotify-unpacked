@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import VisualisationPanel from '@/components/InterviewerVizPanel.vue';
+import VisualisationPanel from '@/components/ParticipantVizPanel.vue';
 import DataPanel from '@/components/DataPanel.vue';
 import ResizablePanelGroup from '@/components/ui/resizable/ResizablePanelGroup.vue';
 import ResizablePanel from '@/components/ui/resizable/ResizablePanel.vue';
