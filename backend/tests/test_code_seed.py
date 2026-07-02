@@ -19,7 +19,7 @@ def test_parse_skips_comments_and_blanks():
 def test_parse_defaults_max_uses_and_label():
     entries, errors = parse_seed_csv("MDAP-001\n")
     assert errors == []
-    assert entries[0] == CodeSeedEntry(code="MDAP-001", max_uses=1, admin_label=None)
+    assert entries[0] == CodeSeedEntry(code="MDAP-001", max_uses=10, admin_label=None)
 
 
 def test_parse_reports_bad_max_uses():

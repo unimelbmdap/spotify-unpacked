@@ -24,7 +24,7 @@ class ParticipantCode(SQLModel, table=True):
     # without a data migration; donations reference it via this unique column.
     code: str = Field(index=True, unique=True)
     status: CodeStatus = Field(default=CodeStatus.active)
-    max_uses: int = Field(default=1)
+    max_uses: int = Field(default=10)  # safeguard headroom, not a one-shot lock
     uses: int = Field(default=0)
     created_at: datetime
     admin_label: str | None = Field(default=None)  # MUST NOT contain PII

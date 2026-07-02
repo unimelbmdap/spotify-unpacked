@@ -21,7 +21,7 @@ class ConsentResponse(BaseModel):
 
 class CodeCreateRequest(BaseModel):
     count: int = Field(ge=1, le=1000)
-    max_uses: int = Field(default=1, ge=1)
+    max_uses: int = Field(default=10, ge=1)
     admin_label: str | None = Field(default=None, max_length=200)
 
 

@@ -38,7 +38,7 @@ async def generate_codes(
     session: AsyncSession,
     *,
     count: int,
-    max_uses: int = 1,
+    max_uses: int = 10,
     admin_label: str | None = None,
 ) -> list[ParticipantCode]:
     if count < 1 or count > 1000:

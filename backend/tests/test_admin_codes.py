@@ -21,6 +21,12 @@ def test_get_codes_lists(client, admin_headers):
     assert len(r.json()) == 2
 
 
+def test_default_max_uses_is_10(client, admin_headers):
+    # No max_uses given -> safeguard default of 10, not one-shot.
+    [c] = client.post("/api/admin/codes", headers=admin_headers, json={"count": 1}).json()
+    assert c["max_uses"] == 10
+
+
 def test_patch_code_revokes(client, admin_headers):
     [c] = client.post("/api/admin/codes", headers=admin_headers, json={"count": 1}).json()
     r = client.patch(

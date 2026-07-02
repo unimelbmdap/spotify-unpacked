@@ -10,7 +10,7 @@ class CodeSeedEntry:
     """
 
     code: str
-    max_uses: int = 1
+    max_uses: int = 10  # default is a generous safeguard, not a one-shot lock
     admin_label: str | None = None
 
 
@@ -18,7 +18,7 @@ def parse_seed_csv(text: str) -> tuple[list[CodeSeedEntry], list[str]]:
     """Parse the whitelist seed file into entries plus a list of error strings.
 
     Format (one code per line): ``code,max_uses,label``
-      - ``max_uses`` (default 1) and ``label`` are optional.
+      - ``max_uses`` (default 10) and ``label`` are optional.
       - Lines starting with ``#`` and blank lines are ignored.
       - A label may itself contain commas (everything after the second comma).
       - A malformed line (empty code, non-integer max_uses) is skipped and
@@ -37,7 +37,7 @@ def parse_seed_csv(text: str) -> tuple[list[CodeSeedEntry], list[str]]:
             errors.append(f"line {lineno}: empty code")
             continue
 
-        max_uses = 1
+        max_uses = 10
         if len(parts) >= 2 and parts[1].strip() != "":
             raw_max = parts[1].strip()
             try:
