@@ -7,14 +7,15 @@ import { Line, PolarArea, Radar } from 'vue-chartjs'
 import type { TooltipItem } from 'chart.js'
 import BanCard from '@/components/BanCard.vue'
 import { archetypeConfig, bandScore } from '@/lib/archetypeConfig'
+import { formatMinutes, formatDateWithDayofWeek } from '@/lib/utils'
 
 const datastore = useDataStore()
 const {cartesianOptions, radialOptions, isDark} = useChartOptions()
 
-const stackedBarData = computed(() => {
-  const lib = datastore.listeningTimeByMonthLibrary
-  const other = datastore.listeningTimeByMonthOther
-  const labels = Object.keys(datastore.listeningTimeByMonth)
+const stackedAreaData = computed(() => {
+  const lib = datastore.listeningTimeByDateLibrary
+  const other = datastore.listeningTimeByDateOther
+  const labels = Object.keys(datastore.listeningTimeByDate)
   if (labels.length === 0) return null
   return {
     labels,
@@ -30,8 +31,8 @@ const stackedBarData = computed(() => {
       },
       {
         label: 'Algorithm & other',
-        backgroundColor: 'hsla(280, 58%, 52%, 0.35)',
-        borderColor: 'hsla(280, 58%, 52%, 1)',
+        backgroundColor: 'hsla(28, 58%, 52%, 0.35)',
+        borderColor: 'hsla(28, 58%, 52%, 1)',
         fill: true,
         tension: 0.4,
         pointRadius: 0,
@@ -41,13 +42,34 @@ const stackedBarData = computed(() => {
   }
 })
 
-const stackedBarOptions = computed(() => {
+const stackedAreaOptions = computed(() => {
   const base = cartesianOptions.value
+  const lib = datastore.listeningTimeByDateLibrary
+  const other = datastore.listeningTimeByDateOther
   return {
     ...base,
     scales: {
       x: { ...base.scales.x, stacked: true },
       y: { ...base.scales.y, stacked: true },
+    },
+    interaction: { mode: 'index' as const, intersect: false },
+    plugins: {
+      ...base.plugins,
+      tooltip: {
+        callbacks: {
+          title: (context: TooltipItem<'line'>[]) => {
+            const date = new Date(context[0].label ?? '')
+            return formatDateWithDayofWeek(date)
+          },
+          label: (context: TooltipItem<'line'>) => {
+            const date = context.label
+            const value = context.parsed.y ?? 0
+            const dayTotal = (lib[date] ?? 0) + (other[date] ?? 0)
+            const percent = dayTotal > 0 ? Math.round((value / dayTotal) * 100) : 0
+            return `${context.dataset.label}: ${formatMinutes(value)} (${percent}%)`
+          },
+        },
+      },
     },
   }
 })
@@ -60,7 +82,7 @@ const hourLabelsAll = Array.from({ length: 24 }, (_, i) => {
 })
 const hourLabels = hourLabelsAll.map((label, i) => [0, 6, 12, 18].includes(i) ? label : '')
 const hourColorsLibrary = Array.from({length: 24}, (_, i) => `hsla(141, 62%, ${30 + Math.round((i / 23) * 32)}%, 0.8)`)
-const hourColorsOther = Array.from({length: 24}, (_, i) => `hsla(280, 55%, ${30 + Math.round((i / 23) * 32)}%, 0.8)`)
+const hourColorsOther = Array.from({length: 24}, (_, i) => `hsla(28, 55%, ${30 + Math.round((i / 23) * 32)}%, 0.8)`)
 
 function makePolarHourData(hours: number[], colors: string[]) {
   if (hours.every(v => v === 0)) return null
@@ -199,7 +221,7 @@ const archetypeCaptions = computed(() => {
 
 const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const dayColorsLibrary = Array.from({length: 7}, (_, i) => `hsla(141, 62%, ${33 + Math.round((i / 6) * 30)}%, 0.8)`)
-const dayColorsOther = Array.from({length: 7}, (_, i) => `hsla(280, 55%, ${33 + Math.round((i / 6) * 30)}%, 0.8)`)
+const dayColorsOther = Array.from({length: 7}, (_, i) => `hsla(28, 55%, ${33 + Math.round((i / 6) * 30)}%, 0.8)`)
 
 function makePolarDayData(days: number[], colors: string[]) {
   if (days.every(v => v === 0)) return null
@@ -252,7 +274,7 @@ const dayPolarOptions = computed(() => {
           <CardHeader><CardTitle>Listening over time</CardTitle></CardHeader>
           <CardContent class="relative flex-1">
             <div class="h-72 p-4 pt-0">
-              <Line v-if="stackedBarData" :key="`stacked-bar-${isDark}`" :data="stackedBarData" :options="stackedBarOptions" />
+              <Line v-if="stackedAreaData" :key="`stacked-area-${isDark}`" :data="stackedAreaData" :options="stackedAreaOptions" />
               <p v-else class="text-muted-foreground text-center text-sm">No data available.</p>
             </div>
           </CardContent>
