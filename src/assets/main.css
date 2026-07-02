@@ -114,6 +114,11 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+.ban {
+  @apply rounded-lg border border-border text-card-foreground;
+  background-color: oklch(0.97 0.03 145);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

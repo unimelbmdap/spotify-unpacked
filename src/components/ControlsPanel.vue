@@ -30,7 +30,7 @@ const chartTypes = [
     <div class="flex flex-col gap-4 p-4">
       <Card>
         <CardHeader>
-          <CardTitle>Controls</CardTitle>
+          <CardTitle>Controls That Are Not Currently Usable</CardTitle>
           <CardDescription>Configure your visualisation</CardDescription>
         </CardHeader>
         <CardContent>

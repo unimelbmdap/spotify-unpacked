@@ -3,7 +3,7 @@ import { RouterLink } from 'vue-router'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 const firstInstructionPanel = {
-  src: '/Panel1_DownlaodTitle.png',
+  src: `${import.meta.env.BASE_URL}Panel1_DownloadTitle.png`,
   alt: 'Instructions on how to download your Spotify data',
 }
 </script>
@@ -16,7 +16,7 @@ const firstInstructionPanel = {
       </CardHeader>
       <CardContent class="space-y-3">
         <div class="overflow-hidden rounded-md border">
-        <img :src="firstInstructionPanel.src" :alt="firstInstructionPanel.alt" class="h-auto w-full" />
+        <img :src="firstInstructionPanel.src" :alt="'Instructions on how to download your Spotify data'" class="h-auto w-full" />
         </div>
         <p class="text-sm text-muted-foreground">Click here to view the steps to request and download your Spotify data.</p>
       </CardContent>
