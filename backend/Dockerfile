@@ -55,4 +55,8 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# --proxy-headers + --forwarded-allow-ips=* make uvicorn honour Caddy's
+# X-Forwarded-Proto/For, so behind the HTTPS reverse proxy the app builds
+# https:// URLs (sqladmin assets + login form) and audits the real client IP.
+# Safe here: the backend is only reachable via Caddy, never published publicly.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
