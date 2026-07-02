@@ -20,6 +20,10 @@ COPY . .
 # same-origin: the browser calls /api and /admin on the host Caddy serves.
 ARG VITE_API_BASE_URL=""
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+# Caddy serves the SPA at the domain root, so build with a root base path
+# (overriding the GitHub Pages subpath default in vite.config.ts).
+ARG VITE_BASE="/"
+ENV VITE_BASE=$VITE_BASE
 RUN npm run build-only
 
 # ---------- Serve with Caddy ----------

@@ -47,6 +47,10 @@ Two alternatives, depending on where MDAP places this:
   time (empty = same origin). It's set to `""` in `docker-compose.prod.yml`, so
   the browser calls `/api` and `/admin` on the Caddy host. Changing it later
   means rebuilding the caddy image, not just restarting.
+- **Base path.** `vite.config.ts` defaults `base` to `/spotify-unpacked/` for the
+  GitHub Pages subpath deploy. This image builds with `VITE_BASE=/` (set in the
+  compose build args) so assets and routes resolve at the domain root. If you
+  ever serve under a subpath here, change that arg to match.
 - **Single backend replica.** SQLite is a single-writer embedded DB, so run one
   backend. Scaling out would require moving to Postgres (and Redis for the rate
   limiter). Fine for a single research cohort.

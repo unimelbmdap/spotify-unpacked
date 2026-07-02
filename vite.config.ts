@@ -9,7 +9,10 @@ import pkg from './package.json' with { type: 'json' }
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/spotify-unpacked/',
+  // Deploy target sets the base path. Default suits the GitHub Pages subpath
+  // (unimelbmdap.github.io/spotify-unpacked/); the Caddy/backend deploy serves
+  // the SPA at the domain root, so its image builds with VITE_BASE=/.
+  base: process.env.VITE_BASE || '/spotify-unpacked/',
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
