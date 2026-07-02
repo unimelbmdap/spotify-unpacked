@@ -76,6 +76,38 @@ function byMonth(subset: MusicEntry[]) {
   )
 }
 
+function dateKeyAndLabel(ts: string) {
+  const date = new Date(ts)
+  const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  const label = date.toLocaleString('default', { day: 'numeric', month: 'short', year: 'numeric' })
+  return { key, label }
+}
+
+function groupByDate(subset: MusicEntry[]) {
+  const groups = new Map<string, { label: string; monthLabel: string; entries: MusicEntry[] }>()
+  for (const entry of subset) {
+    const { key, label } = dateKeyAndLabel(entry.ts)
+    let group = groups.get(key)
+    if (!group) {
+      group = { label, monthLabel: monthKeyAndLabel(entry.ts).label, entries: [] }
+      groups.set(key, group)
+    }
+    group.entries.push(entry)
+  }
+  return [...groups.keys()]
+    .sort((a, b) => a.localeCompare(b))
+    .map((key) => groups.get(key)!)
+}
+
+function byDate(subset: MusicEntry[]) {
+  return Object.fromEntries(
+    groupByDate(subset).map(({ label, entries }) => [
+      label,
+      entries.reduce((sum, e) => sum + Math.round(e.msPlayed / 1000 / 60), 0),
+    ])
+  )
+}
+
 export const useDataStore = defineStore('data', () => {
   const entries = ref<MusicEntry[]>([])
   const seenEntries = ref<Set<string>>(new Set())
@@ -151,6 +183,10 @@ export const useDataStore = defineStore('data', () => {
     Object.fromEntries(monthlyGroups.value.map(g => [g.label, g.entries]))
   )
 
+  const dailyGroups = computed(() => groupByDate(entries.value))
+  const listeningTimeByDate = computed(() => byDate(entries.value))
+  const dateMonthLabels = computed(() => dailyGroups.value.map(g => g.monthLabel))
+
   function entriesForMonth(label: string) {
     return entriesByMonth.value[label] ?? []
   }
@@ -208,6 +244,8 @@ export const useDataStore = defineStore('data', () => {
   const listeningTimeByDayOther = computed(() => byDay(otherEntries.value))
   const listeningTimeByMonthLibrary = computed(() => byMonth(libraryEntries.value))
   const listeningTimeByMonthOther = computed(() => byMonth(otherEntries.value))
+  const listeningTimeByDateLibrary = computed(() => byDate(libraryEntries.value))
+  const listeningTimeByDateOther = computed(() => byDate(otherEntries.value))
 
   const shuffleRate = computed(() => {
     if (entries.value.length === 0) return 0
@@ -285,6 +323,8 @@ export const useDataStore = defineStore('data', () => {
     // listening time, overall & by period
     listeningTimeHours,
     listeningTimeByMonth,
+    listeningTimeByDate,
+    dateMonthLabels,
     listeningTimeByHour,
     listeningTimeByDay,
     uniqueTrackCount,
@@ -306,6 +346,8 @@ export const useDataStore = defineStore('data', () => {
     listeningTimeByDayOther,
     listeningTimeByMonthLibrary,
     listeningTimeByMonthOther,
+    listeningTimeByDateLibrary,
+    listeningTimeByDateOther,
 
     // listening archetype scores
     shuffleRate,

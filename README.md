@@ -21,16 +21,16 @@ spotify-unpacked/
 │   │   └── main.css                   # Global styles and Tailwind imports
 │   ├── components/
 │   │   ├── AppHeader.vue              # Top bar — title, view nav links, theme toggle, about popover
-│   │   ├── BanCard.vue                # "Big number" stat card (label + value + optional caption)
+│   │   ├── BanCard.vue                # "Big aggregate number" stat card (label + value + optional caption)
 │   │   ├── ControlsPanel.vue          # Dashboard's right sidebar — chart type selector (placeholder) and donate link
 │   │   ├── DataPanel.vue              # Left sidebar on every view — file drop zone, dataset stats, clear button
-│   │   ├── DonationPanel.vue          # Card linking to the donate page
-│   │   ├── DownloadHelp.vue           # Card linking to the download-instructions page
+│   │   ├── DonationPanel.vue          # Placeholder for data donation details
+│   │   ├── DownloadHelp.vue           # Download instructions
 │   │   ├── FileCard.vue               # Per-file-type upload status card with an info tooltip (used by UploadPanel)
 │   │   ├── FileDropZone.vue           # Drag/drop + click-to-browse zone; unzips .zip uploads (used by DataPanel)
 │   │   ├── FilesProgressPanel.vue     # Dataset-completeness card, superseded by StatsCard — currently unused
-│   │   ├── InterviewerVizPanel.vue    # Interviewer view's charts — stacked listening area, archetype radar, hour/day polar charts
-│   │   ├── ParticipantVizPanel.vue    # Participant view's charts — month-by-month explorer with a slider
+│   │   ├── InterviewerVizPanel.vue    # Draft version of interviewer view's charts — stacked listening area, archetype radar, hour/day polar charts
+│   │   ├── ParticipantVizPanel.vue    # Draft prticipant view's charts — month-by-month explorer with an interactive slider
 │   │   ├── StatsCard.vue              # Dataset-completeness card driven by the required file types
 │   │   ├── UploadPanel.vue            # Dashboard's central upload UI — BAN stats plus a FileCard per expected file type
 │   │   └── ui/                        # shadcn-vue primitives (button, card, dialog, dropdown-menu, popover, resizable, scroll-area, select, slider)
@@ -38,7 +38,7 @@ spotify-unpacked/
 │   │   ├── useChartOptions.ts         # Shared Chart.js option builders (cartesian/radial), dark-mode aware
 │   │   └── useFileDrop.ts             # Drag/drop state plus directory/zip flattening shared by the drop zones
 │   ├── lib/
-│   │   ├── archetypeConfig.ts         # Band/weight config for the receptiveness/responsiveness/deliberate scores
+│   │   ├── archetypeConfig.ts         # Draft band/weight config for the receptiveness/responsiveness/deliberate scores
 │   │   ├── fileTypes.ts               # Definitions of the expected Spotify export file types
 │   │   ├── monthlyStats.ts            # Top track/artist helpers for a given month's entries
 │   │   ├── parser.ts                  # Parses Spotify export JSON into `MusicEntry` records

@@ -9,6 +9,7 @@ import { Line, PolarArea } from 'vue-chartjs'
 import type { TooltipItem } from 'chart.js'
 import BanCard from '@/components/BanCard.vue'
 import { topTrack, topArtist } from '@/lib/monthlyStats'
+import { formatMinutes, formatDateWithDayofWeek  } from '@/lib/utils'
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
 
 const datastore = useDataStore()
@@ -26,11 +27,13 @@ function stepMonth(delta: number) {
   selectedMonthIndex.value = Math.min(max, Math.max(0, selectedMonthIndex.value + delta))
 }
 
-const stackedBarData = computed(() => {
-  const monthly = datastore.listeningTimeByMonth
-  const labels = Object.keys(monthly)
+
+const stackedAreaData = computed(() => {
+  const daily = datastore.listeningTimeByDate
+  const labels = Object.keys(daily)
   if (labels.length === 0) return null
-  const selectedIdx = selectedMonthIndex.value
+  const selectedLabel = selectedMonthLabel.value
+  const dateMonthLabels = datastore.dateMonthLabels
   return {
     labels,
     datasets: [
@@ -40,18 +43,36 @@ const stackedBarData = computed(() => {
         borderColor: 'hsla(141, 72%, 42%, 1)',
         fill: true,
         tension: 0.4,
-        pointRadius: labels.map((_, i) => i === selectedIdx ? 6 : 0),
-        pointHoverRadius: 6,
+        pointRadius: labels.map((_, i) => dateMonthLabels[i] === selectedLabel ? 3 : 0),
+        pointHoverRadius: 5,
         pointBackgroundColor: 'hsla(141, 72%, 42%, 1)',
         pointBorderColor: 'white',
         pointBorderWidth: 2,
-        data: labels.map(l => monthly[l] ?? 0),
+        data: labels.map(l => daily[l] ?? 0),
       },
     ],
   }
 })
 
-const stackedBarOptions = computed(() => cartesianOptions.value)
+const stackedAreaOptions = computed(() => {
+  const base = cartesianOptions.value
+  return {
+    ...base,
+    interaction: { mode: 'index' as const, intersect: false },
+    plugins: {
+      ...base.plugins,
+      tooltip: {
+        callbacks: {
+          title: (context: TooltipItem<'line'>[]) => {
+            const date = new Date(context[0].label ?? '')
+            return formatDateWithDayofWeek(date)
+          },
+          label: (context: TooltipItem<'line'>) => `Listening time: ${formatMinutes(context.parsed.y ?? 0)}`,
+        },
+      },
+    },
+  }
+})
 
 const monthEntries = computed(() => selectedMonthLabel.value ? datastore.entriesForMonth(selectedMonthLabel.value) : [])
 const topTrackForMonth = computed(() => topTrack(monthEntries.value))
@@ -122,7 +143,7 @@ const hourlyPolarOptions = computed(() => {
           <CardHeader><CardTitle>Listening over time — {{ selectedMonthLabel }}</CardTitle></CardHeader>
           <CardContent class="relative flex-1">
             <div class="h-72 p-4 pt-0">
-              <Line v-if="stackedBarData" :key="`stacked-bar-${isDark}`" :data="stackedBarData" :options="stackedBarOptions" />
+              <Line v-if="stackedAreaData" :key="`stacked-area-${isDark}`" :data="stackedAreaData" :options="stackedAreaOptions" />
               <p v-else class="text-muted-foreground text-center text-sm">No data available.</p>
             </div>
             <div v-if="datastore.monthLabels.length > 0" class="flex items-center gap-3 px-4 pb-4">
