@@ -58,7 +58,7 @@ const stackedAreaOptions = computed(() => {
       tooltip: {
         callbacks: {
           title: (context: TooltipItem<'line'>[]) => {
-            const date = new Date(context[0].label ?? '')
+            const date = new Date(context[0]?.label ?? '')
             return formatDateWithDayofWeek(date)
           },
           label: (context: TooltipItem<'line'>) => {
