@@ -85,7 +85,9 @@ class ParticipantCodeAdmin(ModelView, model=ParticipantCode):
     ]
     column_searchable_list = [ParticipantCode.code, ParticipantCode.admin_label]
     column_sortable_list = [ParticipantCode.code, ParticipantCode.created_at, ParticipantCode.status]
-    # `code` is the primary key: settable on create, fixed on edit.
+    # `code` is the primary key: it must be typed on create, so include the PK
+    # in forms (sqladmin excludes PKs by default), and keep it fixed on edit.
+    form_include_pk = True
     form_create_rules = ["code", "status", "max_uses", "admin_label"]
     form_edit_rules = ["status", "max_uses", "admin_label"]
 
