@@ -127,14 +127,15 @@ class DonationAdmin(_ReadOnlyView, model=Donation):
     name = "Donation"
     name_plural = "Donations"
     icon = "fa-solid fa-box-archive"
+    # synced_at / mediaflux_asset_id are intentionally omitted: v1 sync tracks
+    # nothing in the DB, so they'd always render empty and mislead. status here
+    # is the donation-write lifecycle (pending/stored/failed), not sync state.
     column_list = [
         Donation.id,
         Donation.code,
         Donation.status,
         Donation.submitted_at,
         Donation.storage_path,
-        Donation.synced_at,
-        Donation.mediaflux_asset_id,
     ]
     column_sortable_list = [Donation.id, Donation.submitted_at, Donation.status]
 

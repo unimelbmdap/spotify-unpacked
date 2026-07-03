@@ -49,6 +49,20 @@ def test_prepare_code_data_rejects_malformed_code_on_edit():
         prepare_code_data({"code": "bad code!"}, is_created=False)
 
 
+def test_donation_admin_hides_unpopulated_sync_columns():
+    # v1 sync tracks nothing in the DB, so synced_at / mediaflux_asset_id are
+    # always empty; showing them in the panel would be misleading.
+    from app.admin_panel import DonationAdmin
+    from app.models import Donation
+
+    names = {getattr(col, "key", col) for col in DonationAdmin.column_list}
+    assert "synced_at" not in names
+    assert "mediaflux_asset_id" not in names
+    # the donation-write lifecycle columns stay
+    assert Donation.status in DonationAdmin.column_list
+    assert Donation.storage_path in DonationAdmin.column_list
+
+
 @pytest.fixture
 def client(monkeypatch, tmp_path):
     monkeypatch.setenv("IP_HASH_SALT", "x" * 64)
