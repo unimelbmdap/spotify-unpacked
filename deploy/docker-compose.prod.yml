@@ -61,6 +61,19 @@ services:
       - caddy-data:/data
       - caddy-config:/config
 
+  mflux-sync:
+    build:
+      context: mflux-sync
+    image: donation-mflux-sync:prod
+    restart: unless-stopped
+    # MFLUX_TOKEN + MFLUX_DEST_PARENT (and any overrides) come from .env;
+    # host/port/transport/interval have image defaults.
+    env_file:
+      - .env
+    volumes:
+      # Source is the same volume the backend writes to, mounted read-only.
+      - donation-data:/data:ro
+
 volumes:
   donation-data:
   caddy-data:
