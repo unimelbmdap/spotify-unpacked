@@ -69,9 +69,11 @@ def test_temp_files_are_staged_outside_target_dir(tmp_path, monkeypatch):
         target_dir=target,
     )
 
-    # os.replace ran for both zip + sidecar, and neither was staged in target_dir
+    # os.replace ran for both zip + sidecar, and neither was staged ANYWHERE
+    # inside the recursively-watched donations tree (target/.tmp would still be
+    # scanned, so `!= target` is too weak — use is_relative_to).
     assert staged_parents, "expected os.replace to be called"
-    assert all(parent != target for parent in staged_parents)
+    assert all(not parent.is_relative_to(target) for parent in staged_parents)
 
     # end state: only the final files live in the watched dir, no dotfiles/.tmp
     names = sorted(p.name for p in target.iterdir())
@@ -85,7 +87,7 @@ def test_temp_files_are_staged_outside_target_dir(tmp_path, monkeypatch):
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `cd backend && .venv/bin/pytest tests/test_storage.py -q`
-Expected: FAIL, `assert all(parent != target ...)` is False (current code stages `.tmp` inside `target_dir`).
+Expected: FAIL, the `is_relative_to(target)` assertion is False because the current code stages `.tmp` inside `target_dir` (which IS relative to `target`).
 
 - [ ] **Step 3: Implement — stage temp files in a sibling `.tmp` dir**
 
@@ -206,6 +208,7 @@ git commit -m "change(admin): hide unpopulated synced_at/mediaflux_asset_id colu
 
 **Interfaces:**
 - Produces: an image whose entrypoint validates config and loops `java -cp /opt/mf.jar unimelb.mf.client.sync.cli.MFUpload --dest "$MFLUX_DEST_PARENT" --create-parents --csum-check --nb-workers 2 /data/donations` every `MFLUX_SCAN_INTERVAL` seconds. Reads `MFLUX_HOST/PORT/TRANSPORT/TOKEN` (client-native), `MFLUX_DEST_PARENT`, `MFLUX_SCAN_INTERVAL` from env.
+- Note (verified): `unimelb-mf-clients-<v>-jar-with-dependencies.jar` (what the Dockerfile copies) is **byte-identical** (same sha256) to the distribution's `lib/unimelb-mf-clients.jar` used in the successful manual upload, and running `MFUpload` from it directly is the exact invocation that was validated. Step 4 re-verifies it.
 
 - [ ] **Step 1: Create the entrypoint script**
 
@@ -216,7 +219,9 @@ Create `deploy/mflux-sync/entrypoint.sh`:
 # Each cycle is a full server-side compare (idempotent + backfills existing files).
 set -eu
 
-# Fail fast with a clear message rather than restart-looping on an auth error.
+# Validate required config up front and exit with a clear message if missing.
+# (With restart: unless-stopped this crash-loops with logs naming the missing
+#  var, rather than silently running with bad config.)
 : "${MFLUX_TOKEN:?MFLUX_TOKEN is required (secure identity token)}"
 : "${MFLUX_DEST_PARENT:?MFLUX_DEST_PARENT is required (parent collection path)}"
 : "${MFLUX_SCAN_INTERVAL:=300}"
@@ -324,6 +329,7 @@ Append to `deploy/.env.example`:
 MFLUX_DEST_PARENT=/projects/proj-4180_spotify_unpacked-1128.4.1450
 # Secure identity token (participant-acm role) from the token portal:
 # https://mediaflux.researchsoftware.unimelb.edu.au/token-portal/
+# If the token ever contains a literal `$`, double it to `$$` (see .env header note).
 MFLUX_TOKEN=
 # Optional overrides (defaults baked into the image):
 # MFLUX_HOST=mediaflux.researchsoftware.unimelb.edu.au
@@ -364,10 +370,11 @@ and integrity, then retires the throwaway `/volume/mflux-sync` scaffold.
 On the VM:
 ```bash
 cd /volume/spotify-unpacked && git pull --ff-only
-# ensure MFLUX_TOKEN + MFLUX_DEST_PARENT are set in deploy/.env
-grep -E '^MFLUX_(TOKEN|DEST_PARENT)=' deploy/.env
+# ensure MFLUX_TOKEN + MFLUX_DEST_PARENT are set + non-empty (without printing them)
+grep -q '^MFLUX_TOKEN=.' deploy/.env && grep -q '^MFLUX_DEST_PARENT=.' deploy/.env \
+  && echo "both set" || echo "MISSING one of MFLUX_TOKEN / MFLUX_DEST_PARENT"
 ```
-Expected: both present (token non-empty).
+Expected: `both set`.
 
 - [ ] **Step 2: Build + start the whole stack (backend rebuilt for the storage change)**
 
@@ -391,11 +398,11 @@ cannot write to a read-only source, add a writable scratch volume to the service
 - [ ] **Step 4: Verify integrity against Mediaflux**
 
 ```bash
-IP=$(sudo docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' donation-prod-mflux-sync-1)
-# unimelb-mf-check compares the local dir with the Mediaflux destination
-sudo docker exec donation-prod-mflux-sync-1 \
-  java -cp /opt/mf.jar unimelb.mf.client.sync.cli.MFCheck \
-  --dest "$MFLUX_DEST_PARENT" /data/donations
+# Run INSIDE the container so $MFLUX_DEST_PARENT expands from the container env
+# (the operator shell doesn't have it). MFCheck compares local vs Mediaflux.
+cd /volume/spotify-unpacked/deploy
+sudo docker compose -f docker-compose.prod.yml exec -T mflux-sync sh -c \
+  'java -cp /opt/mf.jar unimelb.mf.client.sync.cli.MFCheck --dest "$MFLUX_DEST_PARENT" /data/donations'
 ```
 Expected: reports the local files match the Mediaflux assets (0 differences).
 (`unimelb.mf.client.sync.cli.MFCheck` is the verified check entrypoint in the jar.)
