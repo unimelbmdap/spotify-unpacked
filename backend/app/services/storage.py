@@ -31,16 +31,26 @@ def store_bundle(
     (crash, OOM, container restart mid-write) never leave a half-written
     file visible to the sync job.
 
+    Temp files are staged in a sibling `.tmp/` dir *outside* `target_dir`
+    rather than inside it. The Mediaflux sync recursively watches
+    `target_dir` and has no file-exclude flag, so a partial `.tmp` file
+    inside it (even under a dot-subdir, which is still scanned) could be
+    uploaded mid-write. Staging outside the watched tree, but on the same
+    filesystem (a sibling of `target_dir`), keeps the final `os.replace`
+    into `target_dir` atomic.
+
     Caller is responsible for ensuring `asset_name` is unique inside
     `target_dir` (the donations service already includes donation_id +
     timestamp in the name).
     """
     target_dir.mkdir(parents=True, exist_ok=True)
+    tmp_dir = target_dir.parent / ".tmp"
+    tmp_dir.mkdir(parents=True, exist_ok=True)
 
     final_zip = target_dir / asset_name
     final_json = target_dir / f"{asset_name}.json"
-    tmp_zip = target_dir / f".{asset_name}.tmp"
-    tmp_json = target_dir / f".{asset_name}.json.tmp"
+    tmp_zip = tmp_dir / f".{asset_name}.tmp"
+    tmp_json = tmp_dir / f".{asset_name}.json.tmp"
 
     try:
         # Copy then rename — keeps the original temp file intact in case
