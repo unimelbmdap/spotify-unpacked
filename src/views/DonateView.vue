@@ -2,6 +2,9 @@
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Button } from '@/components/ui/button'
+import FileDropZone from '@/components/FileDropZone.vue'
+import { useDataStore } from '@/stores/data'
+import { buildDonationFiles } from '@/lib/donationPayload'
 import { ApiError, checkCode, donate, getConsent, type Consent, type DonationResponse } from '@/lib/api'
 
 // Client-side mirrors of the backend limits, for early feedback only. The
@@ -12,8 +15,9 @@ const MAX_BYTES_PER_REQUEST = 200 * 1024 * 1024
 
 const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
 
-type Step = 'code' | 'form' | 'done'
+const dataStore = useDataStore()
 
+type Step = 'code' | 'form' | 'done'
 const step = ref<Step>('code')
 
 // Step 1: code.
@@ -21,17 +25,23 @@ const code = ref('')
 const checking = ref(false)
 const codeError = ref('')
 
-// Step 2: consent + files.
+// Step 2: consent.
 const consent = ref<Consent | null>(null)
 const consentAccepted = ref(false)
-const files = ref<File[]>([])
-const fileError = ref('')
 
 // Submit.
 const submitting = ref(false)
 const progress = ref(0)
 const submitError = ref('')
 const result = ref<DonationResponse | null>(null)
+
+const summary = computed(() => {
+  const parts: string[] = []
+  if (dataStore.entries.length > 0) parts.push(`${dataStore.entries.length.toLocaleString()} plays`)
+  if (dataStore.libraryTracks.length > 0) parts.push(`library of ${dataStore.libraryTracks.length} tracks`)
+  if (dataStore.playlists.length > 0) parts.push(`${dataStore.playlists.length} playlists`)
+  return parts.join(' · ')
+})
 
 async function onCheckCode() {
   const value = code.value.trim()
@@ -59,50 +69,45 @@ async function onCheckCode() {
   }
 }
 
-function onFiles(selected: File[]) {
-  fileError.value = ''
-  const jsonFiles = selected.filter((f) => f.name.toLowerCase().endsWith('.json'))
-  if (jsonFiles.length !== selected.length) {
-    fileError.value = 'Only .json files from your Spotify export are accepted.'
-  }
-
-  // Merge with anything already chosen, de-duplicating by name.
-  const byName = new Map(files.value.map((f) => [f.name, f]))
-  for (const f of jsonFiles) byName.set(f.name, f)
-  const merged = [...byName.values()]
-
-  if (merged.length > MAX_FILES) {
-    fileError.value = `Please select at most ${MAX_FILES} files.`
-    return
-  }
-  if (merged.some((f) => f.size > MAX_BYTES_PER_FILE)) {
-    fileError.value = 'One of your files is larger than 50 MB.'
-    return
-  }
-  if (merged.reduce((sum, f) => sum + f.size, 0) > MAX_BYTES_PER_REQUEST) {
-    fileError.value = 'Your files total more than 200 MB.'
-    return
-  }
-  files.value = merged
+function onFilesDropped(files: File[]) {
+  dataStore.loadFiles(files)
 }
 
-function onFileInput(event: Event) {
-  const input = event.target as HTMLInputElement
-  onFiles(Array.from(input.files ?? []))
-  input.value = ''
-}
-
-function removeFile(name: string) {
-  files.value = files.value.filter((f) => f.name !== name)
+function onLoadDifferent() {
+  dataStore.clear()
 }
 
 const canSubmit = computed(
-  () => consentAccepted.value && files.value.length > 0 && !submitting.value,
+  () => consentAccepted.value && dataStore.hasDonatableData && !submitting.value,
 )
 
 async function onSubmit() {
   if (!canSubmit.value || !consent.value) return
   submitError.value = ''
+
+  const files = buildDonationFiles({
+    entries: dataStore.entries,
+    libraryTracks: dataStore.libraryTracks,
+    playlists: dataStore.playlists,
+  })
+
+  if (files.length === 0) {
+    submitError.value = 'There is no data to donate. Please load your Spotify files first.'
+    return
+  }
+  if (files.length > MAX_FILES) {
+    submitError.value = `The donation would contain more than ${MAX_FILES} files.`
+    return
+  }
+  if (files.some((f) => f.size > MAX_BYTES_PER_FILE)) {
+    submitError.value = 'One of the donation files is larger than 50 MB.'
+    return
+  }
+  if (files.reduce((sum, f) => sum + f.size, 0) > MAX_BYTES_PER_REQUEST) {
+    submitError.value = 'Your donation totals more than 200 MB.'
+    return
+  }
+
   submitting.value = true
   progress.value = 0
 
@@ -111,7 +116,7 @@ async function onSubmit() {
   form.append('consent_version', consent.value.version)
   form.append('consent_accepted', 'true')
   form.append('app_version', appVersion)
-  for (const f of files.value) form.append('files', f, f.name)
+  for (const f of files) form.append('files', f, f.name)
 
   try {
     result.value = await donate(form, (p) => (progress.value = p))
@@ -131,8 +136,6 @@ async function onSubmit() {
     submitting.value = false
   }
 }
-
-defineExpose({ onFiles })
 </script>
 
 <template>
@@ -164,7 +167,7 @@ defineExpose({ onFiles })
       </Button>
     </section>
 
-    <!-- Step 2: consent + files -->
+    <!-- Step 2: consent + data source -->
     <section v-else-if="step === 'form'" class="flex flex-col gap-4">
       <div
         class="bg-muted/40 max-h-48 overflow-y-auto rounded-md border p-3 text-sm whitespace-pre-line"
@@ -178,18 +181,18 @@ defineExpose({ onFiles })
       </label>
 
       <div class="flex flex-col gap-2">
-        <input type="file" accept=".json" multiple @change="onFileInput" />
-        <p v-if="fileError" data-test="file-error" class="text-destructive text-sm">
-          {{ fileError }}
-        </p>
-        <ul v-if="files.length" class="text-muted-foreground text-sm">
-          <li v-for="f in files" :key="f.name" class="flex items-center justify-between">
-            <span>{{ f.name }}</span>
-            <button type="button" class="text-destructive" @click="removeFile(f.name)">
-              remove
-            </button>
-          </li>
-        </ul>
+        <template v-if="dataStore.hasDonatableData">
+          <p data-test="donation-summary" class="text-sm">
+            We will donate the data you loaded: {{ summary }}.
+          </p>
+          <button type="button" class="text-muted-foreground text-left text-xs underline" @click="onLoadDifferent">
+            Load different data
+          </button>
+        </template>
+        <template v-else>
+          <p class="text-muted-foreground text-sm">Load your Spotify files to donate.</p>
+          <FileDropZone @files-dropped="onFilesDropped" />
+        </template>
       </div>
 
       <p v-if="submitting" class="text-muted-foreground text-sm">Uploading… {{ progress }}%</p>

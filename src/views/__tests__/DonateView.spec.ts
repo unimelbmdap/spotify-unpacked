@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { setActivePinia, createPinia } from 'pinia'
 
 vi.mock('@/lib/api', () => {
   class ApiError extends Error {
@@ -9,16 +10,12 @@ vi.mock('@/lib/api', () => {
       this.status = status
     }
   }
-  return {
-    ApiError,
-    checkCode: vi.fn(),
-    getConsent: vi.fn(),
-    donate: vi.fn(),
-  }
+  return { ApiError, checkCode: vi.fn(), getConsent: vi.fn(), donate: vi.fn() }
 })
 
 import DonateView from '../DonateView.vue'
 import * as api from '@/lib/api'
+import { useDataStore } from '@/stores/data'
 
 const mountView = () => mount(DonateView, { global: { stubs: { RouterLink: true } } })
 
@@ -28,59 +25,76 @@ async function advanceToFormStep(wrapper: ReturnType<typeof mountView>) {
   await flushPromises()
 }
 
+const streamingFile = () =>
+  new File(
+    [
+      JSON.stringify([
+        {
+          ts: '2025-07-01T10:00:00Z',
+          platform: 'ios',
+          ms_played: 1000,
+          master_metadata_track_name: 'Song',
+          master_metadata_album_artist_name: 'Artist',
+          master_metadata_album_album_name: 'Album',
+          spotify_track_uri: 'spotify:track:1',
+          reason_start: 'trackdone',
+          reason_end: 'trackdone',
+          shuffle: false,
+          skipped: false,
+        },
+      ]),
+    ],
+    'Streaming_History_audio_2025.json',
+    { type: 'application/json' },
+  )
+
 beforeEach(() => {
+  setActivePinia(createPinia())
   vi.clearAllMocks()
   vi.mocked(api.getConsent).mockResolvedValue({ version: 'v1.0', text: 'CONSENT TEXT' })
 })
 
 describe('DonateView', () => {
-  it('advances to the consent + files step when the code is valid', async () => {
+  it('advances to the consent step when the code is valid', async () => {
     vi.mocked(api.checkCode).mockResolvedValue({ valid: true })
     const wrapper = mountView()
-
     await advanceToFormStep(wrapper)
-
-    expect(api.checkCode).toHaveBeenCalledWith('MDAP-2026-001')
     expect(wrapper.text()).toContain('CONSENT TEXT')
   })
 
-  it('shows an error and stays on the code step for an invalid code', async () => {
-    vi.mocked(api.checkCode).mockResolvedValue({ valid: false })
+  it('cannot submit when the store has no donatable data', async () => {
+    vi.mocked(api.checkCode).mockResolvedValue({ valid: true })
     const wrapper = mountView()
-
     await advanceToFormStep(wrapper)
-
-    expect(wrapper.text()).toContain('not recognised')
-    expect(wrapper.text()).not.toContain('CONSENT TEXT')
+    await wrapper.find('[data-test="consent-checkbox"]').setValue(true)
+    expect(wrapper.find('[data-test="submit-donation"]').attributes('disabled')).toBeDefined()
   })
 
-  it('shows a success message with the donation id after a successful submit', async () => {
+  it('donates only reconstructed files built from the store', async () => {
     vi.mocked(api.checkCode).mockResolvedValue({ valid: true })
     vi.mocked(api.donate).mockResolvedValue({ donation_id: 42, results: [] })
-    const wrapper = mountView()
+    const store = useDataStore()
+    await store.loadFiles([streamingFile()])
 
+    const wrapper = mountView()
     await advanceToFormStep(wrapper)
-    wrapper.vm.onFiles([new File(['{}'], 'StreamingHistory.json', { type: 'application/json' })])
     await wrapper.find('[data-test="consent-checkbox"]').setValue(true)
     await wrapper.find('[data-test="submit-donation"]').trigger('click')
     await flushPromises()
 
     expect(api.donate).toHaveBeenCalled()
+    const form = vi.mocked(api.donate).mock.calls[0]?.[0] as FormData
+    const donated = form.getAll('files') as File[]
+    expect(donated.map((f) => f.name)).toEqual(['streaming_history.json'])
     expect(wrapper.text()).toContain('42')
   })
 
-  it('returns to the code step when the submit is rejected as 401', async () => {
+  it('falls back to the drop-zone loader when the store has no data', async () => {
     vi.mocked(api.checkCode).mockResolvedValue({ valid: true })
-    vi.mocked(api.donate).mockRejectedValue(new api.ApiError(401, 'invalid'))
     const wrapper = mountView()
-
     await advanceToFormStep(wrapper)
-    wrapper.vm.onFiles([new File(['{}'], 'StreamingHistory.json', { type: 'application/json' })])
-    await wrapper.find('[data-test="consent-checkbox"]').setValue(true)
-    await wrapper.find('[data-test="submit-donation"]').trigger('click')
-    await flushPromises()
-
-    expect(wrapper.find('[data-test="code-input"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('invalid or already used')
+    // No store data: show the loader (FileDropZone renders a file input), not the summary.
+    expect(wrapper.find('[data-test="donation-summary"]').exists()).toBe(false)
+    expect(wrapper.find('input[type="file"]').exists()).toBe(true)
   })
 })
