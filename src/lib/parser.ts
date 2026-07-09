@@ -53,22 +53,82 @@ export function parseStreamingFile(raw: unknown): MusicEntry[] {
       audiobookChapterTitle: entry.audiobook_chapter_title,
     }))}
 
-export function parseLibraryFile(raw: unknown): Set<string> {
-  if (typeof raw !== 'object' || raw === null) return new Set()
-  const { tracks } = raw as { tracks?: Array<{ uri?: string }> }
-  if (!Array.isArray(tracks)) return new Set()
-  return new Set(tracks.map(t => t.uri).filter((uri): uri is string => typeof uri === 'string'))
+export interface LibraryTrack {
+  artist: string | null
+  album: string | null
+  track: string | null
+  uri: string
 }
 
-export function parsePlaylistFile(raw: unknown): Set<string> {
-  if (typeof raw !== 'object' || raw === null) return new Set()
-  const { playlists } = raw as { playlists?: Array<{ items?: Array<{ track?: { trackUri?: string } }> }> }
-  if (!Array.isArray(playlists)) return new Set()
-  const uris = new Set<string>()
-  for (const playlist of playlists) {
-    for (const item of playlist.items ?? []) {
-      if (item.track?.trackUri) uris.add(item.track.trackUri)
-    }
+export interface PlaylistTrack {
+  trackName: string | null
+  artistName: string | null
+  albumName: string | null
+  trackUri: string
+}
+
+export interface PlaylistItem {
+  track: PlaylistTrack | null
+  addedDate: string | null
+}
+
+export interface Playlist {
+  name: string
+  lastModifiedDate: string | null
+  items: PlaylistItem[]
+}
+
+const asString = (value: unknown): string | null => (typeof value === 'string' ? value : null)
+
+export function parseLibraryTracks(raw: unknown): LibraryTrack[] {
+  if (typeof raw !== 'object' || raw === null) return []
+  const { tracks } = raw as { tracks?: unknown }
+  if (!Array.isArray(tracks)) return []
+  return tracks
+    .filter(
+      (t): t is Record<string, unknown> =>
+        typeof t === 'object' && t !== null && typeof (t as { uri?: unknown }).uri === 'string',
+    )
+    .map((t) => ({
+      artist: asString(t.artist),
+      album: asString(t.album),
+      track: asString(t.track),
+      uri: t.uri as string,
+    }))
+}
+
+function toPlaylistItem(raw: unknown): PlaylistItem {
+  const item = (typeof raw === 'object' && raw !== null ? raw : {}) as {
+    track?: unknown
+    addedDate?: unknown
   }
-  return uris
+  const t = item.track
+  const track: PlaylistTrack | null =
+    typeof t === 'object' && t !== null
+      ? {
+          trackName: asString((t as Record<string, unknown>).trackName),
+          artistName: asString((t as Record<string, unknown>).artistName),
+          albumName: asString((t as Record<string, unknown>).albumName),
+          trackUri: asString((t as Record<string, unknown>).trackUri) ?? '',
+        }
+      : null
+  return { track, addedDate: asString(item.addedDate) }
+}
+
+export function parsePlaylists(raw: unknown): Playlist[] {
+  if (typeof raw !== 'object' || raw === null) return []
+  const { playlists } = raw as { playlists?: unknown }
+  if (!Array.isArray(playlists)) return []
+  return playlists.map((p) => {
+    const pl = (typeof p === 'object' && p !== null ? p : {}) as {
+      name?: unknown
+      lastModifiedDate?: unknown
+      items?: unknown
+    }
+    return {
+      name: asString(pl.name) ?? '',
+      lastModifiedDate: asString(pl.lastModifiedDate),
+      items: Array.isArray(pl.items) ? pl.items.map(toPlaylistItem) : [],
+    }
+  })
 }
