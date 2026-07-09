@@ -11,6 +11,14 @@
 ## Global Constraints
 
 - **Spec:** `docs/superpowers/specs/2026-07-09-donation-prefill-modelled-data-design.md` (authoritative).
+- **Schema verified against real exports on 2026-07-09** (gitignored `local/Datasets/…`). Confirmed:
+  streaming records carry exactly the field set in `parser.ts` (incl. the excluded
+  `conn_country`/`ip_addr`/`offline`/`offline_timestamp`/`incognito_mode`); `YourLibrary.json`
+  `tracks[]` = `{artist, album, track, uri}`; playlist items =
+  `{track: {trackName, artistName, albumName, trackUri}, episode, audiobook, localTrack, addedDate}`
+  (`addedDate` present → kept); playlist top-level also has `collaborators` (third-party
+  identifiers), `description`, `numberOfFollowers` → all excluded. Do NOT commit any file
+  under `local/`; tests use synthetic fixtures only.
 - **Never emit sensitive keys** anywhere in a donation payload: `ip_addr`, `conn_country`, `incognito_mode`, `offline`, `offline_timestamp`, episode/audiobook fields, playlist `description`, playlist follower counts.
 - **Conservative defaults (spec §9), keep for this build:** streaming = music-only, post-`2025-06-01` (already enforced by `parseStreamingFile`); no podcasts/audiobooks; no `search`/`aidj`; field-name shape = **original Spotify snake_case** for streaming.
 - **No raw `File` retention; no local/session persistence.** In-memory Pinia only.
@@ -462,6 +470,7 @@ const SENSITIVE_KEYS = [
   'audiobook_chapter_title',
   'description',
   'numberOfFollowers',
+  'collaborators',
 ]
 
 function collectKeys(value: unknown, keys = new Set<string>()): Set<string> {
@@ -1066,4 +1075,6 @@ git commit -m "test(e2e): dashboard-loaded data is offered for donation without 
 
 - §6a consent text + `consent_version` bump (ethics-owned; ship blocker).
 - §9 confirmations (field-name shape, `offline*` exclusion, podcasts/audiobooks, search/AIDJ) — built conservatively; revisit with MDAP.
+- **Library sub-collections beyond `tracks`** — real `YourLibrary.json` also holds `albums`, `artists`, `shows`, `episodes`, `bannedTracks`, `bannedArtists`, `other`. The store models only `tracks` (as today's viz does), so donation includes tracks only. Enriching to saved albums/artists is a future, localised change in the parser + `donationPayload.ts`.
+- **Playlist non-track items** — items whose `track` is null (episode/audiobook/local-track entries) donate as `{ track: null, addedDate }`; their `episode`/`audiobook`/`localTrack` payloads are intentionally dropped (music-curation focus).
 - Zip-expansion code duplication + `dataTransfer.files` fallback (spec §8) — separate cleanup.
