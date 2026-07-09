@@ -222,7 +222,7 @@ export function parsePlaylists(raw: unknown): Playlist[] {
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run src/lib/__tests__/parser.spec.ts`
-Expected: PASS (5 tests).
+Expected: PASS (4 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -241,11 +241,12 @@ git commit -m "feat(parser): enriched library/playlist parsing (descriptive fiel
 
 **Interfaces:**
 - Consumes: `parseLibraryTracks`, `parsePlaylists`, `LibraryTrack`, `Playlist` (Task 1).
-- Produces (added to the store's returned object):
-  - `libraryTracks: Ref<LibraryTrack[]>`
-  - `playlists: Ref<Playlist[]>`
-  - `hasDonatableData: ComputedRef<boolean>`
-  - (`libraryUris`/`playlistUris` remain internal, now `computed`.)
+- Produces (added to the store's returned object; consumed as unwrapped values on the
+  store proxy, e.g. `store.playlists`, `store.libraryTracks`, `store.hasDonatableData`):
+  - `libraryTracks` — `LibraryTrack[]`
+  - `playlists` — `Playlist[]`
+  - `hasDonatableData` — `boolean`
+  - (`libraryUris`/`playlistUris` stay internal, converted from `ref` to `computed`.)
 
 - [ ] **Step 1: Write the failing test**
 
@@ -271,15 +272,27 @@ describe('useDataStore enriched library/playlists', () => {
     expect(store.playlists.map((p) => p.name)).toEqual(['one', 'two'])
   })
 
-  it('derives playlist URIs from enriched items and exposes hasDonatableData', async () => {
+  it('derives library+playlist URIs (hasLibraryData) and exposes hasDonatableData', async () => {
     const store = useDataStore()
     expect(store.hasDonatableData).toBe(false)
     await store.loadFiles([
       jsonFile('YourLibrary.json', {
         tracks: [{ artist: 'A', album: 'B', track: 'C', uri: 'spotify:track:1' }],
       }),
+      jsonFile('Playlist1.json', {
+        playlists: [
+          {
+            name: 'gym',
+            items: [{ track: { trackName: 'C', artistName: 'A', albumName: 'B', trackUri: 'spotify:track:2' } }],
+          },
+        ],
+      }),
     ])
     expect(store.libraryTracks).toHaveLength(1)
+    expect(store.playlists).toHaveLength(1)
+    // hasLibraryData is true only when BOTH the library and playlist URI sets are
+    // non-empty, which proves playlistUris is derived from the enriched items.
+    expect(store.hasLibraryData).toBe(true)
     expect(store.hasDonatableData).toBe(true)
   })
 
@@ -444,6 +457,9 @@ const SENSITIVE_KEYS = [
   'episode_show_name',
   'spotify_episode_uri',
   'audiobook_title',
+  'audiobook_uri',
+  'audiobook_chapter_uri',
+  'audiobook_chapter_title',
   'description',
   'numberOfFollowers',
 ]
@@ -697,6 +713,15 @@ describe('DonateView', () => {
     const donated = form.getAll('files') as File[]
     expect(donated.map((f) => f.name)).toEqual(['streaming_history.json'])
     expect(wrapper.text()).toContain('42')
+  })
+
+  it('falls back to the drop-zone loader when the store has no data', async () => {
+    vi.mocked(api.checkCode).mockResolvedValue({ valid: true })
+    const wrapper = mountView()
+    await advanceToFormStep(wrapper)
+    // No store data: show the loader (FileDropZone renders a file input), not the summary.
+    expect(wrapper.find('[data-test="donation-summary"]').exists()).toBe(false)
+    expect(wrapper.find('input[type="file"]').exists()).toBe(true)
   })
 })
 ```
@@ -1033,7 +1058,7 @@ git commit -m "test(e2e): dashboard-loaded data is offered for donation without 
 
 - [ ] **Full unit suite:** `npx vitest run` — all pass.
 - [ ] **Types:** `npm run type-check` — clean.
-- [ ] **Lint:** `npm run lint` — clean.
+- [ ] **Lint (non-mutating check):** `npx oxlint .` then `npx eslint .` — clean. Avoid `npm run lint`, which runs with `--fix` and would mutate files during verification.
 - [ ] **E2E:** `npm run test:e2e -- donate-prefill` — pass.
 - [ ] Confirm no reference to removed `parseLibraryFile`/`parsePlaylistFile` remains: `git grep -n "parseLibraryFile\|parsePlaylistFile" src` returns nothing.
 
