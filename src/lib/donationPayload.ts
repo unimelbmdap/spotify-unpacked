@@ -1,4 +1,4 @@
-import type { LibraryTrack, MusicEntry, Playlist } from '@/lib/parser'
+import type { LibraryTrack, MusicEntry, Playlist, PlaylistItem } from '@/lib/parser'
 
 /**
  * The single scope boundary for what leaves the browser. To widen or narrow the
@@ -28,6 +28,44 @@ function streamingRecord(entry: MusicEntry) {
   }
 }
 
+/**
+ * Explicit allowlist for a saved-library track. Rebuilding the object here (rather
+ * than passing the model through) keeps this module the sole scope boundary: even if
+ * an upstream change let extra keys onto a LibraryTrack, they cannot leave the browser.
+ */
+function libraryRecord(track: LibraryTrack) {
+  return {
+    artist: track.artist,
+    album: track.album,
+    track: track.track,
+    uri: track.uri,
+  }
+}
+
+/** Explicit allowlist for a playlist item (drops any episode/audiobook/local payload). */
+function playlistItemRecord(item: PlaylistItem) {
+  return {
+    addedDate: item.addedDate,
+    track: item.track
+      ? {
+          trackName: item.track.trackName,
+          artistName: item.track.artistName,
+          albumName: item.track.albumName,
+          trackUri: item.track.trackUri,
+        }
+      : null,
+  }
+}
+
+/** Explicit allowlist for a playlist (drops description, numberOfFollowers, collaborators). */
+function playlistRecord(playlist: Playlist) {
+  return {
+    name: playlist.name,
+    lastModifiedDate: playlist.lastModifiedDate,
+    items: playlist.items.map(playlistItemRecord),
+  }
+}
+
 function jsonFile(name: string, data: unknown): File {
   return new File([JSON.stringify(data)], name, { type: 'application/json' })
 }
@@ -38,10 +76,10 @@ export function buildDonationFiles(source: DonationSource): File[] {
     files.push(jsonFile('streaming_history.json', source.entries.map(streamingRecord)))
   }
   if (source.libraryTracks.length > 0) {
-    files.push(jsonFile('your_library.json', { tracks: source.libraryTracks }))
+    files.push(jsonFile('your_library.json', { tracks: source.libraryTracks.map(libraryRecord) }))
   }
   if (source.playlists.length > 0) {
-    files.push(jsonFile('playlists.json', { playlists: source.playlists }))
+    files.push(jsonFile('playlists.json', { playlists: source.playlists.map(playlistRecord) }))
   }
   return files
 }

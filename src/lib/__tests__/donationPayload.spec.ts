@@ -89,25 +89,52 @@ describe('buildDonationFiles', () => {
     expect(hasDonatableData({ entries: [], libraryTracks: [], playlists: [] })).toBe(false)
   })
 
-  it('never includes sensitive keys anywhere in the payload', async () => {
-    const files = buildDonationFiles({
-      entries: [entry()],
-      libraryTracks: [{ artist: 'A', album: 'B', track: 'C', uri: 'spotify:track:1' }],
+  it('strips sensitive/extra keys even when the source objects carry them', async () => {
+    // Deliberately DIRTY inputs: sensitive and unknown keys that must never be
+    // emitted. This proves the builder is a self-contained allowlist rather than a
+    // pass-through that merely trusts the parser to have sanitised its output.
+    const dirtyEntry = entry({
+      episodeName: 'Podcast Ep',
+      audiobookTitle: 'Some Book',
+      audiobookUri: 'spotify:audiobook:1',
+    })
+    const dirtySource = {
+      entries: [dirtyEntry],
+      libraryTracks: [
+        { artist: 'A', album: 'B', track: 'C', uri: 'spotify:track:1', description: 'LEAK', foo: 'bar' },
+      ],
       playlists: [
         {
           name: 'gym',
           lastModifiedDate: '2026-01-01',
+          description: 'SECRET',
+          numberOfFollowers: 9,
+          collaborators: [{ name: 'Someone Else' }],
           items: [
             {
               addedDate: '2026-01-02',
               track: { trackName: 'C', artistName: 'A', albumName: 'B', trackUri: 'spotify:track:1' },
+              episode: { showName: 'X' },
+              audiobook: { title: 'Y' },
+              localTrack: { path: '/z' },
             },
           ],
         },
       ],
-    })
+    } as unknown as Parameters<typeof buildDonationFiles>[0]
+
+    const files = buildDonationFiles(dirtySource)
     const allKeys = new Set<string>()
     for (const file of files) collectKeys(await readFile(file), allKeys)
+
     for (const key of SENSITIVE_KEYS) expect(allKeys.has(key)).toBe(false)
+    // Allowlist, not denylist: unknown keys and playlist non-track payloads are dropped too.
+    for (const key of ['foo', 'episode', 'audiobook', 'localTrack']) {
+      expect(allKeys.has(key)).toBe(false)
+    }
+    // Sanity: the legitimate fields DID survive, so we are not trivially passing.
+    expect(allKeys.has('spotify_track_uri')).toBe(true)
+    expect(allKeys.has('addedDate')).toBe(true)
+    expect(allKeys.has('lastModifiedDate')).toBe(true)
   })
 })
