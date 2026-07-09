@@ -190,7 +190,13 @@ async function onSubmit() {
           </button>
         </template>
         <template v-else>
-          <p class="text-muted-foreground text-sm">Load your Spotify files to donate.</p>
+          <p class="text-muted-foreground text-sm">
+            {{
+              dataStore.hasData
+                ? 'The files you loaded do not include donatable data (listening history, library, or playlists). Add those files to donate.'
+                : 'Load your Spotify files to donate.'
+            }}
+          </p>
           <FileDropZone @files-dropped="onFilesDropped" />
         </template>
       </div>
