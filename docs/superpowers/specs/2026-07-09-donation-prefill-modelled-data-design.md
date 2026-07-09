@@ -69,6 +69,13 @@ The one module that defines what leaves the browser. Pure function of store stat
 - `your_library.json` — library tracks with descriptive fields.
 - `playlists.json` — playlists with names, dates, and their tracks' descriptive fields.
 
+**Donation gate.** Submit eligibility is defined by the builder's output, not by
+`dataStore.hasData`. `hasData` is merely `files.length > 0` (`data.ts:123`) and
+`loadFiles` records file metadata even for types the builder does not emit
+(search / AIDJ / unrecognised valid JSON, `data.ts:158`). Introduce
+`hasDonatableData` (or gate on `buildDonationFiles(...).length >= 1`) so a donor
+with only, say, a search file cannot reach an empty submit.
+
 ### 3.1 Field policy
 
 **Chosen shape (confirm at review): preserve the original Spotify field names**
@@ -76,6 +83,21 @@ The one module that defines what leaves the browser. Pure function of store stat
 that researchers can process with familiar tooling. Alternative considered: emit the
 app's internal camelCase `MusicEntry` shape (simpler, bespoke schema). Either way the
 field *set* is identical and lives in this one module.
+
+**"Sensitive" is not a binary.** The bundle is **reduced/modelled personal data**, not
+"non-sensitive" data. We exclude the directly identifying/network columns below, but
+retained fields still carry personal signal: `platform` can reveal device/app details,
+and playlist `name` / `lastModifiedDate` are user-created behavioural metadata. The spec
+and consent copy should describe a *reduced modelled subset*, not claim the descriptive
+fields are harmless.
+
+**Field names must be proven against real fixtures.** The enriched field paths below are
+inferred partly from `explorations/code/ExplorePlaylists.py` and
+`explorations/code/InitialExplorationofSpotifyJSONfiles.py`; the current parser only
+reads `tracks[].uri` and `playlists[].items[].track.trackUri`. Before finalising, confirm
+each enriched field against a real `YourLibrary.json` / `Playlist*.json` sample — in
+particular `items[].addedDate`, for which no repo evidence was found — and handle
+missing/null `track` on playlist items.
 
 **Streaming history — included fields** (from the raw entry, kept post-filter):
 `ts`, `platform`, `ms_played`, `master_metadata_track_name`,
@@ -99,8 +121,10 @@ counts or descriptions unless later deemed useful.
 
 ### 3.2 Guarantees
 
-- Only reconstructed JSON is emitted → invalid/partial source files can never be donated.
-- Sensitive keys are absent by construction (never copied in).
+- Only reconstructed JSON is emitted → the *frontend* never donates invalid/partial
+  source files. (This is a client-side property, not an API/security guarantee: the
+  backend still accepts any `.json` and remains authoritative.)
+- Excluded keys are absent by construction (never copied in).
 - Output is deterministic given store state → testable.
 
 ---
@@ -108,9 +132,20 @@ counts or descriptions unless later deemed useful.
 ## 4. Store changes (`src/stores/data.ts`, `src/lib/parser.ts`)
 
 - **Enrich library/playlist parsing.** Extend `parseLibraryFile` / `parsePlaylistFile`
-  to return the enriched (descriptive, non-sensitive) structures described in §3.1, and
-  store them. The existing URI sets used by the viz (`libraryUris`, `playlistUris`) are
-  derived from the enriched structures, so dashboard behaviour is unchanged.
+  to return the enriched (descriptive) structures described in §3.1, and store them. The
+  existing URI sets used by the viz are **derived** from the enriched structures, so
+  dashboard behaviour is unchanged.
+- **Merge, don't overwrite.** Current parsing overwrites on each file
+  (`data.ts:153-156`: `libraryUris.value = …` / `playlistUris.value = …`). Spotify splits
+  playlists across `Playlist1.json`, `Playlist2.json`, …, so the enriched `playlists[]`
+  (and the derived URI sets) must **append/merge** across files, not replace. Fixing this
+  also corrects a latent dashboard bug where a second playlist file currently wipes the
+  first.
+- **Expose modelled state for the pure builder.** The builder can be a pure function of
+  the store *only after* the store returns the modelled state it needs. Today `entries` is
+  returned but `libraryUris`/`playlistUris` are internal and the enriched models don't
+  exist (`data.ts:307+`). Add `libraryTracks` and `playlists` (the enriched models) to the
+  store's return object.
 - **No raw `File` retention.** `LoadedFile` stays `{ name, size, type }`.
 - **`clear()`** must also reset the new enriched library/playlist state.
 - Streaming history needs **no** store change: `store.entries` already holds the modelled
@@ -130,10 +165,20 @@ section above the existing consent block:
 - **If not:** render `FileDropZone`, which populates the same store via the identical
   `loadFiles` pipeline. After loading, the summary appears.
 
+**Replace the donate-local raw-file machinery.** `DonateView` currently owns
+`files: File[]` (`DonateView.vue:27`), validates raw selections, and appends those raw
+files to `FormData` (`DonateView.vue:109`). Remove that: fallback loading routes through
+`dataStore.loadFiles()` (same pipeline as the dashboard), and the submit body comes solely
+from `buildDonationFiles(dataStore)`. Original selected files are never appended.
+
 **Submit** (`onSubmit`): build `File[]` via `donationPayload.ts`, append to the existing
-`FormData`, and POST through the current `api.donate()` (XHR progress unchanged). The
-client-side size/count limits (`MAX_FILES`, `MAX_BYTES_PER_FILE`, `MAX_BYTES_PER_REQUEST`)
-are recomputed on the **reconstructed** files (which are smaller than the raw export).
+`FormData`, and POST through the current `api.donate()` (XHR progress unchanged).
+- Recompute client-side limits (`MAX_FILES`, `MAX_BYTES_PER_FILE`, `MAX_BYTES_PER_REQUEST`)
+  on the **created** JSON `File`s using `file.size` (after serialisation), not source
+  string length. Reconstructed files are smaller than the raw export, so this normally
+  passes, but the check must run on the real artifacts.
+- Treat `files.length === 0` as a user-facing error *before* calling `api.donate()` (see
+  the §3 donation gate).
 
 **Gating unchanged.** Consent must be accepted before submit; the backend re-enforces
 consent version, code validity, extension, and size limits. Prefill only makes files
@@ -155,21 +200,38 @@ No changes. `/api/donate` continues to accept multipart `.json` files and zip th
 server-side into `bundle.zip`. Named reconstructed files (`streaming_history.json`, etc.)
 keep the stored bundle intelligible.
 
+## 6a. Consent dependency (hard, not optional)
+
+Switching the donated artifact from raw files to a reconstructed modelled subset makes
+the current consent copy **inaccurate**: `backend/consent/v1.0.md:3-6` says the team may
+"store and analyse **the contents of those files**", which describes the raw export. The
+UI and the submitted artifact must match the consent wording, so this needs a consent
+text update and a `consent_version` bump (MDAP / ethics-owned), coordinated with the
+implementation, not left as a follow-up. Treat approved consent copy as a **release
+blocker** for this feature.
+
 ---
 
 ## 7. Testing
 
 - **`donationPayload.ts` (unit):**
   - filtering reflected (only kept plays serialised);
+  - all listening rows filtered out → **no** `streaming_history.json`;
   - enriched library/playlist shape correct;
   - empty types omitted (e.g. no library loaded → no `your_library.json`);
-  - **regression guard:** assert no sensitive keys (`ip_addr`, `conn_country`,
-    `incognito_mode`) appear anywhere in the emitted payload.
+  - search/AIDJ/unrecognised-only load produces **zero** payload files (drives the gate);
+  - **recursive sensitive-key guard:** assert none of `ip_addr`, `conn_country`,
+    `incognito_mode`, `offline`, `offline_timestamp`, episode/audiobook fields, playlist
+    `description`, or follower counts appear anywhere in the emitted payload.
 - **Store / parser (unit):** enriched parsing retains descriptive fields, excludes
-  sensitive ones; viz URI sets still derived correctly; `clear()` resets enriched state.
+  the sensitive columns; **multiple `PlaylistN.json` files merge, not overwrite**; viz URI
+  sets still derived correctly; `clear()` resets enriched state; missing/null playlist
+  `track` handled.
 - **`DonateView` (component):** store-present path shows summary and donates store data;
-  no-data path falls back to loader; correct summary counts; consent still gates submit;
-  oversized reconstructed payload surfaces the size error.
+  no-data path falls back to loader; search/AIDJ-only load does **not** enable submit;
+  correct summary counts; consent still gates submit; oversized reconstructed payload
+  surfaces the size error; a mocked submit inspects `FormData` and proves **only
+  reconstructed files are appended, never original selected files**.
 - **E2E (Playwright):** load on dashboard (both `DataPanel` and `UploadPanel`, including a
   zip-expanded input) → `/donate` → submit against a mocked backend; plus a
   reload-then-`/donate` case exercising the loader fallback.
@@ -199,3 +261,7 @@ keep the stored bundle intelligible.
    keep excluded for now — confirm acceptable.
 3. **Podcasts/audiobooks excluded** as a consequence of the music-only filter — confirm
    acceptable for the conservative start.
+4. **Search / AI DJ excluded.** These are listed as expected file types
+   (`fileTypes.ts`, and shown in the dashboard completeness card) but the store never
+   parses them into modelled state, so the conservative build **does not donate them**.
+   Confirm acceptable, or decide they warrant their own modelled parsing + payload entry.
