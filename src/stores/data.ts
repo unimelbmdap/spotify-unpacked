@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import type { ChartData } from 'chart.js'
-import { parseStreamingFile, parseLibraryFile, parsePlaylistFile, entryKey, type MusicEntry } from '@/lib/parser'
+import { parseStreamingFile, parseLibraryTracks, parsePlaylists, entryKey, type MusicEntry, type LibraryTrack, type Playlist } from '@/lib/parser'
 import { classifyFile, type FileTypeKey, fileTypes } from '@/lib/fileTypes'
 import {
   archetypeConfig,
@@ -117,11 +117,31 @@ export const useDataStore = defineStore('data', () => {
   const isLoading = ref(false)
   const chartData = ref<Record<string, ChartData>>({})
 
-  const playlistUris = ref<Set<string>>(new Set())
-  const libraryUris = ref<Set<string>>(new Set())
+  const libraryTracks = ref<LibraryTrack[]>([])
+  const playlists = ref<Playlist[]>([])
+
+  const libraryUris = computed(() => new Set(libraryTracks.value.map((t) => t.uri)))
+  const playlistUris = computed(() => {
+    const uris = new Set<string>()
+    for (const playlist of playlists.value) {
+      for (const item of playlist.items) {
+        if (item.track?.trackUri) uris.add(item.track.trackUri)
+      }
+    }
+    return uris
+  })
+
+  function mergeLibraryTracks(existing: LibraryTrack[], incoming: LibraryTrack[]): LibraryTrack[] {
+    const byUri = new Map(existing.map((t) => [t.uri, t]))
+    for (const track of incoming) if (!byUri.has(track.uri)) byUri.set(track.uri, track)
+    return [...byUri.values()]
+  }
 
   const fileCount = computed(() => files.value.length)
   const hasData = computed(() => files.value.length > 0)
+  const hasDonatableData = computed(
+    () => entries.value.length > 0 || libraryTracks.value.length > 0 || playlists.value.length > 0,
+  )
 
   function getChartData(chartType: string): ChartData | undefined {
     return chartData.value[chartType]
@@ -151,9 +171,9 @@ export const useDataStore = defineStore('data', () => {
               })
               entries.value.push(...newEntries)
             } else if (fileType === 'library') {
-              libraryUris.value = parseLibraryFile(json)
+              libraryTracks.value = mergeLibraryTracks(libraryTracks.value, parseLibraryTracks(json))
             } else if (fileType === 'playlists') {
-              playlistUris.value = parsePlaylistFile(json)
+              playlists.value = [...playlists.value, ...parsePlaylists(json)]
             }
             files.value.push({ name: file.name, size: file.size, type: fileType })
           }
@@ -300,8 +320,8 @@ export const useDataStore = defineStore('data', () => {
     entries.value = []
     seenEntries.value = new Set()
     chartData.value = {}
-    libraryUris.value = new Set()
-    playlistUris.value = new Set()
+    libraryTracks.value = []
+    playlists.value = []
   }
 
   return {
@@ -315,6 +335,9 @@ export const useDataStore = defineStore('data', () => {
     fileTypeStatus,
     hasData,
     hasLibraryData,
+    libraryTracks,
+    playlists,
+    hasDonatableData,
     chartData,
     getChartData,
     loadFiles,
