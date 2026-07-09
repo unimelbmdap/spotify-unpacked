@@ -89,12 +89,14 @@ describe('DonateView', () => {
     expect(wrapper.text()).toContain('42')
   })
 
-  it('falls back to the drop-zone loader when the store has no data', async () => {
+  it('prompts to load data on the dashboard when the store has no data', async () => {
     vi.mocked(api.checkCode).mockResolvedValue({ valid: true })
     const wrapper = mountView()
     await advanceToFormStep(wrapper)
-    // No store data: show the loader (FileDropZone renders a file input), not the summary.
+    // No store data: prompt back to the dashboard, no file picker, no summary, submit disabled.
     expect(wrapper.find('[data-test="donation-summary"]').exists()).toBe(false)
-    expect(wrapper.find('input[type="file"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="no-data"]').exists()).toBe(true)
+    expect(wrapper.find('input[type="file"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="submit-donation"]').attributes('disabled')).toBeDefined()
   })
 })

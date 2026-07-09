@@ -2,7 +2,6 @@
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Button } from '@/components/ui/button'
-import FileDropZone from '@/components/FileDropZone.vue'
 import { useDataStore } from '@/stores/data'
 import { buildDonationFiles } from '@/lib/donationPayload'
 import { ApiError, checkCode, donate, getConsent, type Consent, type DonationResponse } from '@/lib/api'
@@ -67,14 +66,6 @@ async function onCheckCode() {
   } finally {
     checking.value = false
   }
-}
-
-function onFilesDropped(files: File[]) {
-  dataStore.loadFiles(files)
-}
-
-function onLoadDifferent() {
-  dataStore.clear()
 }
 
 const canSubmit = computed(
@@ -183,21 +174,23 @@ async function onSubmit() {
       <div class="flex flex-col gap-2">
         <template v-if="dataStore.hasDonatableData">
           <p data-test="donation-summary" class="text-sm">
-            We will donate the data you loaded: {{ summary }}.
+            We will donate the data you loaded on the dashboard: {{ summary }}.
           </p>
-          <button type="button" class="text-muted-foreground text-left text-xs underline" @click="onLoadDifferent">
-            Load different data
-          </button>
+          <RouterLink to="/" class="text-muted-foreground text-left text-xs underline">
+            Change your data on the dashboard
+          </RouterLink>
         </template>
         <template v-else>
-          <p class="text-muted-foreground text-sm">
+          <p data-test="no-data" class="text-muted-foreground text-sm">
             {{
               dataStore.hasData
-                ? 'The files you loaded do not include donatable data (listening history, library, or playlists). Add those files to donate.'
-                : 'Load your Spotify files to donate.'
+                ? 'The files you loaded do not include donatable data (listening history, library, or playlists). Add those files on the dashboard.'
+                : 'You have not loaded any data yet. Head to the dashboard to upload your Spotify files, then come back here to donate.'
             }}
           </p>
-          <FileDropZone @files-dropped="onFilesDropped" />
+          <RouterLink to="/">
+            <Button variant="outline" size="sm">Go to the dashboard</Button>
+          </RouterLink>
         </template>
       </div>
 
