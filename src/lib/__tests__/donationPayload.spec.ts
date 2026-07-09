@@ -57,8 +57,9 @@ function collectKeys(value: unknown, keys = new Set<string>()): Set<string> {
 describe('buildDonationFiles', () => {
   it('emits streaming_history.json with original Spotify snake_case field names', async () => {
     const [file] = buildDonationFiles({ entries: [entry()], libraryTracks: [], playlists: [] })
-    expect(file.name).toBe('streaming_history.json')
-    const rows = await readFile(file)
+    expect(file).toBeDefined()
+    expect(file!.name).toBe('streaming_history.json')
+    const rows = await readFile(file!)
     expect(rows[0]).toEqual({
       ts: '2025-07-01T10:00:00Z',
       platform: 'ios',
