@@ -23,15 +23,19 @@ function monthYear(day: string): string {
 
 /**
  * Both bounds are inclusive and compared on the date portion only, so setting
- * WINDOW_END to '2025-12-31' includes all of 31 December rather than cutting at
+ * end to '2025-12-31' includes all of 31 December rather than cutting at
  * midnight. The comparison is a lexicographic string match, which is valid
  * because Spotify's ts is ISO-8601 and Z-suffixed.
  */
-export function isInWindow(ts: string): boolean {
+export function isWithinBounds(ts: string, start: string, end: string | null): boolean {
   const day = ts.slice(0, 10)
-  if (day < WINDOW_START) return false
-  if (WINDOW_END && day > WINDOW_END) return false
+  if (day < start) return false
+  if (end && day > end) return false
   return true
+}
+
+export function isInWindow(ts: string): boolean {
+  return isWithinBounds(ts, WINDOW_START, WINDOW_END)
 }
 
 export const WINDOW_LABEL = WINDOW_END
