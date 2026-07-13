@@ -125,4 +125,11 @@ describe('parseStreamingFile', () => {
     expect(result).toHaveLength(1)
     expect(result[0]?.ts).toBe('2025-07-02T10:00:00Z')
   })
+
+  it('drops a null array element and still returns a valid entry alongside it', () => {
+    const valid = play('2025-07-02T10:00:00Z')
+    const result = parseStreamingFile([null, valid])
+    expect(result).toHaveLength(1)
+    expect(result[0]?.ts).toBe('2025-07-02T10:00:00Z')
+  })
 })

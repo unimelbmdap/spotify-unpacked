@@ -30,6 +30,11 @@ export function parseStreamingFile(raw: unknown): MusicEntry[] {
 
   return raw
     .filter((entry) =>
+      // A null element would throw on the property access below, and data.ts
+      // swallows parse errors, so one malformed record would silently discard
+      // the participant's whole history file.
+      entry !== null &&
+      typeof entry === 'object' &&
       isInWindow(entry.ts) &&
       entry.master_metadata_track_name !== null &&
       entry.spotify_track_uri !== null
