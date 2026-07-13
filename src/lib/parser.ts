@@ -1,3 +1,5 @@
+import { isInWindow } from '@/lib/dateWindow'
+
 export interface MusicEntry {
   ts: string
   platform: string
@@ -28,7 +30,7 @@ export function parseStreamingFile(raw: unknown): MusicEntry[] {
 
   return raw
     .filter((entry) =>
-      entry.ts >= '2025-06-01' &&
+      isInWindow(entry.ts) &&
       entry.master_metadata_track_name !== null &&
       entry.spotify_track_uri !== null
     )
