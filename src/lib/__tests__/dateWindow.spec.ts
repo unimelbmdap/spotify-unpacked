@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { isInWindow, isWithinBounds, WINDOW_LABEL, WINDOW_LABEL_CAPITALISED } from '@/lib/dateWindow'
+import {
+  isInWindow,
+  isWithinBounds,
+  formatWindowLabel,
+  WINDOW_LABEL,
+  WINDOW_LABEL_CAPITALISED,
+} from '@/lib/dateWindow'
 
 describe('isInWindow', () => {
   it('excludes a play before the start', () => {
@@ -38,6 +44,21 @@ describe('isWithinBounds', () => {
 
   it('includes everything after the start when the end is unbounded', () => {
     expect(isWithinBounds('2099-01-01T00:00:00Z', '2025-01-01', null)).toBe(true)
+  })
+
+  it('excludes a non-string ts instead of throwing, so a malformed entry drops rather than failing the whole file', () => {
+    expect(isWithinBounds(undefined, '2025-01-01', null)).toBe(false)
+    expect(isWithinBounds(null, '2025-01-01', null)).toBe(false)
+  })
+})
+
+describe('formatWindowLabel', () => {
+  it('reads as a mid-sentence phrase when open-ended', () => {
+    expect(formatWindowLabel('2025-01-01', null)).toBe('since January 2025')
+  })
+
+  it('reads as a grammatical mid-sentence phrase when bounded', () => {
+    expect(formatWindowLabel('2025-01-01', '2025-12-31')).toBe('from January 2025 to December 2025')
   })
 })
 

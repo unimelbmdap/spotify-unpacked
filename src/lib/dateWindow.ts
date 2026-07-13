@@ -1,8 +1,10 @@
 /**
- * The study's analysis window. Plays outside it are dropped at parse time, and
- * because the donation is built from parsed entries, this is also the data
- * minimisation boundary for what a participant donates. Widening it widens the
- * donation, so keep it in step with the ethics approval.
+ * The study's analysis window. Streaming plays outside it are dropped at parse
+ * time, so it bounds the streaming history a participant donates. It does NOT
+ * bound library tracks or playlists: those are donated in full regardless of
+ * this window, and playlist items carry their own addedDate/lastModifiedDate
+ * from any era. Widening this window widens the streaming donation, so keep
+ * it in step with the ethics approval.
  */
 export const WINDOW_START = '2025-01-01'
 
@@ -25,22 +27,28 @@ function monthYear(day: string): string {
  * Both bounds are inclusive and compared on the date portion only, so setting
  * end to '2025-12-31' includes all of 31 December rather than cutting at
  * midnight. The comparison is a lexicographic string match, which is valid
- * because Spotify's ts is ISO-8601 and Z-suffixed.
+ * because Spotify's ts is ISO-8601 and Z-suffixed. A non-string ts (missing
+ * or null) is treated as out of bounds rather than thrown on, so a single
+ * malformed entry drops silently instead of failing the whole file.
  */
-export function isWithinBounds(ts: string, start: string, end: string | null): boolean {
+export function isWithinBounds(ts: unknown, start: string, end: string | null): boolean {
+  if (typeof ts !== 'string') return false
   const day = ts.slice(0, 10)
   if (day < start) return false
   if (end && day > end) return false
   return true
 }
 
-export function isInWindow(ts: string): boolean {
+export function isInWindow(ts: unknown): boolean {
   return isWithinBounds(ts, WINDOW_START, WINDOW_END)
 }
 
-export const WINDOW_LABEL = WINDOW_END
-  ? `${monthYear(WINDOW_START)} to ${monthYear(WINDOW_END)}`
-  : `since ${monthYear(WINDOW_START)}`
+/** Formats the window bounds as a mid-sentence phrase, eg. 'since January 2025' or 'from January 2025 to December 2025'. */
+export function formatWindowLabel(start: string, end: string | null): string {
+  return end ? `from ${monthYear(start)} to ${monthYear(end)}` : `since ${monthYear(start)}`
+}
+
+export const WINDOW_LABEL = formatWindowLabel(WINDOW_START, WINDOW_END)
 
 export const WINDOW_LABEL_CAPITALISED =
   WINDOW_LABEL.charAt(0).toUpperCase() + WINDOW_LABEL.slice(1)

@@ -107,4 +107,22 @@ describe('parseStreamingFile', () => {
   it('returns an empty array for a non-array payload', () => {
     expect(parseStreamingFile({ not: 'an array' })).toEqual([])
   })
+
+  it('drops an entry with a missing ts and still returns a valid entry alongside it', () => {
+    const missingTs = { ...play('2025-07-01T10:00:00Z') }
+    // @ts-expect-error simulating a real-world malformed record with ts absent
+    delete missingTs.ts
+    const valid = play('2025-07-02T10:00:00Z')
+    const result = parseStreamingFile([missingTs, valid])
+    expect(result).toHaveLength(1)
+    expect(result[0]?.ts).toBe('2025-07-02T10:00:00Z')
+  })
+
+  it('drops an entry with a null ts and still returns a valid entry alongside it, proving one malformed record no longer discards the whole file', () => {
+    const nullTs = { ...play('2025-07-01T10:00:00Z'), ts: null }
+    const valid = play('2025-07-02T10:00:00Z')
+    const result = parseStreamingFile([nullTs, valid])
+    expect(result).toHaveLength(1)
+    expect(result[0]?.ts).toBe('2025-07-02T10:00:00Z')
+  })
 })
