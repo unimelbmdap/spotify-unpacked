@@ -11,6 +11,7 @@ import BanCard from '@/components/BanCard.vue'
 import { topTrack, topArtist } from '@/lib/monthlyStats'
 import { formatMinutes, formatDateWithDayofWeek  } from '@/lib/utils'
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { WINDOW_LABEL_CAPITALISED } from '@/lib/dateWindow'
 
 const datastore = useDataStore()
 const {cartesianOptions, radialOptions, isDark} = useChartOptions()
@@ -133,7 +134,7 @@ const hourlyPolarOptions = computed(() => {
       <BanCard label="Most popular time of day" :value="favouriteHourForSelectedMonth ?? '-'" :caption="`In ${selectedMonthLabel}`" />
     </div>
     <div class="grid grid-cols-2 gap-4 mb-6" v-else>
-      <BanCard label="Total listening time" :value="datastore.listeningTimeHours.toLocaleString()" unit="hours" caption="Since July 2025" />
+      <BanCard label="Total listening time" :value="datastore.listeningTimeHours.toLocaleString()" unit="hours" :caption="WINDOW_LABEL_CAPITALISED" />
       <BanCard label="Favourite time of day" :value="datastore.favouriteHour ?? '-'"/>
     </div>
 
