@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { useDataStore } from '@/stores/data'
 import { buildDonationFiles } from '@/lib/donationPayload'
 import { ApiError, checkCode, donate, getConsent, type Consent, type DonationResponse } from '@/lib/api'
+import { WINDOW_LABEL } from '@/lib/dateWindow'
 
 // Client-side mirrors of the backend limits, for early feedback only. The
 // backend re-enforces them authoritatively.
@@ -36,7 +37,7 @@ const result = ref<DonationResponse | null>(null)
 
 const summary = computed(() => {
   const parts: string[] = []
-  if (dataStore.entries.length > 0) parts.push(`${dataStore.entries.length.toLocaleString()} plays`)
+  if (dataStore.entries.length > 0) parts.push(`${dataStore.entries.length.toLocaleString()} plays ${WINDOW_LABEL}`)
   if (dataStore.libraryTracks.length > 0) parts.push(`library of ${dataStore.libraryTracks.length} tracks`)
   if (dataStore.playlists.length > 0) parts.push(`${dataStore.playlists.length} playlists`)
   return parts.join(' · ')

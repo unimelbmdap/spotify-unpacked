@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { RouterLink } from "vue-router";
+import { WINDOW_LABEL } from '@/lib/dateWindow'
 
 const panels = [
   {
@@ -8,7 +9,7 @@ const panels = [
   },
   {
     src: `${import.meta.env.BASE_URL}Panel2_Explain.png`,
-    alt: "The download files you donate have your listening history and account data to understand what you listen to in 2025 from your library and from the Spotify algorithm.",
+    alt: `The download files you donate have your listening history and account data to understand what you listen to ${WINDOW_LABEL} from your library and from the Spotify algorithm.`,
   },
   {
     src: `${import.meta.env.BASE_URL}Panel3_OpenWebBrowser.png`,

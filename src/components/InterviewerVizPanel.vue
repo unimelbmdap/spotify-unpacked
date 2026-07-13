@@ -8,6 +8,7 @@ import type { TooltipItem } from 'chart.js'
 import BanCard from '@/components/BanCard.vue'
 import { archetypeConfig, bandScore } from '@/lib/archetypeConfig'
 import { formatMinutes, formatDateWithDayofWeek } from '@/lib/utils'
+import { WINDOW_LABEL, WINDOW_LABEL_CAPITALISED } from '@/lib/dateWindow'
 
 const datastore = useDataStore()
 const {cartesianOptions, radialOptions, isDark} = useChartOptions()
@@ -259,12 +260,12 @@ const dayPolarOptions = computed(() => {
 <template>
   <div class="h-full overflow-y-auto p-4">
     <div class="grid grid-cols-3 gap-4 mb-6" v-if="datastore.hasLibraryData">
-      <BanCard label="Library & playlists" :value="datastore.listeningTimeHoursLibrary.toLocaleString()" unit="hours" :caption="`${datastore.listeningTimePercentLibrary}% of listening time since July 2025`" />
-      <BanCard label="Algorithm & other" :value="datastore.listeningTimeHoursOther.toLocaleString()" unit="hours" :caption="`${datastore.listeningTimePercentOther}% of listening time since July 2025`" />
+      <BanCard label="Library & playlists" :value="datastore.listeningTimeHoursLibrary.toLocaleString()" unit="hours" :caption="`${datastore.listeningTimePercentLibrary}% of listening time ${WINDOW_LABEL}`" />
+      <BanCard label="Algorithm & other" :value="datastore.listeningTimeHoursOther.toLocaleString()" unit="hours" :caption="`${datastore.listeningTimePercentOther}% of listening time ${WINDOW_LABEL}`" />
       <BanCard label="Favourite time of day" :value="datastore.favouriteHour ?? '-'"/>
     </div>
     <div class="grid grid-cols-2 gap-4 mb-6" v-else>
-      <BanCard label="Total listening time" :value="datastore.listeningTimeHours.toLocaleString()" unit="hours" caption="Since July 2025" />
+      <BanCard label="Total listening time" :value="datastore.listeningTimeHours.toLocaleString()" unit="hours" :caption="WINDOW_LABEL_CAPITALISED" />
       <BanCard label="Favourite time of day" :value="datastore.favouriteHour ?? '-'"/>
     </div>
 

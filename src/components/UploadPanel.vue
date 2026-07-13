@@ -7,6 +7,7 @@ import { fileTypes } from '@/lib/fileTypes';
 import { useFileDrop } from '@/composables/useFileDrop'
 import { unzipFile } from '@/lib/unzip'
 import { LoaderCircle } from 'lucide-vue-next'
+import { WINDOW_LABEL_CAPITALISED } from '@/lib/dateWindow'
 
 const datastore = useDataStore();
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -41,7 +42,7 @@ async function onFileSelected(event: Event) {
 
     <!-- BAN row -->
     <div class="grid grid-cols-3 gap-4">
-      <BanCard label="Listening time in 2025" :value="datastore.listeningTimeHours.toLocaleString()" unit="hours" />
+      <BanCard label="Listening time" :value="datastore.listeningTimeHours.toLocaleString()" unit="hours" :caption="WINDOW_LABEL_CAPITALISED" />
       <BanCard label="Unique songs" :value="datastore.uniqueTrackCount.toLocaleString()" />
       <BanCard label="Favourite time of day" :value="datastore.favouriteHour ?? '-'"/>
     </div>
