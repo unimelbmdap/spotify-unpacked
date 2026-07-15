@@ -23,6 +23,13 @@
 #   - TLS terminated upstream (cloud load balancer): set SITE_ADDRESS to `:80`
 #     and remove the email global option.
 {$SITE_ADDRESS} {
+	# Soft-launch: keep the whole site out of search indices while it is public
+	# but not yet formally launched. Applies to every response (SPA shell,
+	# assets, API). The crawler sees this header on fetch, so it is reliable; do
+	# NOT pair it with a robots.txt Disallow, or the crawler will skip the fetch
+	# and never see the noindex. Remove this line when ready to be indexed.
+	header X-Robots-Tag "noindex, nofollow"
+
 	# Cap request bodies to the backend's 200 MB donation limit, so oversize
 	# uploads are rejected at the edge before reaching FastAPI.
 	request_body {
@@ -48,14 +55,12 @@
 
 	# --- Public API (donate + code validation) ---
 	handle /api/* {
-		import basicgate
 		reverse_proxy backend:8000
 	}
 
 	# --- Everything else: the built SPA, with history-mode fallback so deep
 	# links like /donate resolve to index.html instead of 404ing. ---
 	handle {
-		import basicgate
 		root * /srv
 		try_files {path} /index.html
 		file_server

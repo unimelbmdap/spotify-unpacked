@@ -1,5 +1,6 @@
+import asyncio
 import logging
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,6 +10,7 @@ from app.db import init_db, make_engine, session_maker
 from app.deps import get_settings
 from app.ratelimit import attach_limiter
 from app.routes import admin, codes, consent, donate, health
+from app.services.backup import run_backup_loop
 from app.services.codes import load_codes_from_file
 
 logger = logging.getLogger("app")
@@ -32,7 +34,26 @@ async def lifespan(app: FastAPI):
         )
 
     await engine.dispose()
+
+    # Background: periodic DB snapshots, shipped to Mediaflux by the mflux-sync
+    # loop. Runs for the app's lifetime and is cancelled on shutdown.
+    backup_task: asyncio.Task[None] | None = None
+    if settings.backup_enabled:
+        backup_task = asyncio.create_task(
+            run_backup_loop(
+                settings.database_url,
+                settings.backup_dir,
+                settings.backup_interval_hours,
+                settings.backup_retention,
+            )
+        )
+
     yield
+
+    if backup_task is not None:
+        backup_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await backup_task
 
 
 def create_app() -> FastAPI:

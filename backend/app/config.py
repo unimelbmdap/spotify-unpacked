@@ -73,6 +73,22 @@ class Settings(BaseSettings):
     # donate to blunt code-guessing since the endpoint reveals validity.
     rate_limit_validate: str = "20/minute"
 
+    # Database backup
+    # A scheduled `VACUUM INTO` snapshot of the SQLite DB. Snapshots are
+    # timestamped and land in backup_dir; keeping backup_dir inside
+    # donations_storage_dir (the default) means the existing mflux-sync loop
+    # mirrors them to Mediaflux with no extra wiring. The temp file is written
+    # to the DB's own parent dir (outside the synced tree) and atomically
+    # renamed in, so the uploader never sees a partial file.
+    backup_enabled: bool = True
+    backup_interval_hours: float = Field(default=24.0, gt=0, allow_inf_nan=False)
+    backup_dir: Path = Path("./data/donations/_db-backups")
+    # Local snapshots to keep (0 = keep all). Older ones are pruned after each
+    # successful backup so they can't fill the volume; this only affects the
+    # local copy, since mflux-sync is upload-only and never deletes from
+    # Mediaflux, where the full history is retained.
+    backup_retention: int = Field(default=30, ge=0)
+
     @field_validator("participant_codes_file", mode="before")
     @classmethod
     def blank_codes_file_is_none(cls, v: object) -> object:

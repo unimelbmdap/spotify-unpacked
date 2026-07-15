@@ -17,6 +17,9 @@ services:
       # SQLite + donation bundles live on the persistent volume below.
       DATABASE_URL: "sqlite+aiosqlite:////app/data/donations.db"
       DONATIONS_STORAGE_DIR: "/app/data/donations"
+      # Daily DB snapshots land inside the donations tree so the mflux-sync
+      # container mirrors them to Mediaflux with the bundles.
+      BACKUP_DIR: "/app/data/donations/_db-backups"
       # Optional whitelist seed file; if absent, startup no-ops (manage codes
       # via the /admin panel). Drop a participant_codes.csv on the volume to use.
       PARTICIPANT_CODES_FILE: "/app/data/participant_codes.csv"

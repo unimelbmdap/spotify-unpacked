@@ -8,6 +8,16 @@ from app.deps import get_settings
 from app.main import create_app
 
 
+@pytest.fixture(autouse=True)
+def _disable_db_backups(monkeypatch):
+    """Keep the scheduled backup loop from writing snapshots during tests.
+
+    Autouse so it also covers modules that define their own `client` fixture.
+    The backup service functions are still exercised directly in test_backup.py.
+    """
+    monkeypatch.setenv("BACKUP_ENABLED", "false")
+
+
 @pytest.fixture
 def client(monkeypatch, tmp_path) -> Iterator[TestClient]:
     """Default app client.

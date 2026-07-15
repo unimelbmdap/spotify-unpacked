@@ -26,26 +26,6 @@ docker compose -f docker-compose.prod.yml config >/dev/null && echo OK
 docker run --rm -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
 ```
 
-## Basic-auth gate (pre-launch)
-
-Caddy puts a shared username/password in front of the **public** site (SPA +
-public API) so it stays private during early feedback. The admin surfaces
-(`/admin`, `/api/admin`) are excluded, they keep their IP allow-list and own
-login. Set `BASIC_AUTH_USER` in `.env` (default `spotify`), then set the hash
-with this helper from the `deploy/` directory (it hashes the password and
-applies the `$`->`$$` escaping Compose needs):
-
-```bash
-read -rsp 'Basic-auth password: ' P; echo
-HASH=$(sudo docker run --rm caddy:2-alpine caddy hash-password --plaintext "$P")
-sed -i "s|^BASIC_AUTH_HASH=.*|BASIC_AUTH_HASH=$(printf '%s' "$HASH" | sed 's/\$/\$\$/g')|" .env
-unset P; echo "BASIC_AUTH_HASH set."
-```
-
-To rotate the password later, re-run this and `docker compose ... up -d` (no
-rebuild needed; Caddy reads it from the env). To remove the gate entirely,
-delete the `import basicgate` lines from `Caddyfile` and rebuild.
-
 ## TLS options
 
 The Caddyfile defaults to **automatic HTTPS**: set `SITE_ADDRESS` to a real
@@ -77,8 +57,12 @@ Two alternatives, depending on where MDAP places this:
 - **Whitelist codes.** Manage via the `/admin` panel, or drop a
   `participant_codes.csv` onto the `donation-data` volume at
   `/app/data/participant_codes.csv` (loaded at startup; reload from the panel).
-- **Backups (deferred).** Per `../backend/DEPLOYMENT.md`, add Litestream (as a
-  sidecar or a process in the backend image) to stream the SQLite file to object
-  storage. Not wired here yet.
+- **Backups.** The backend writes a daily `VACUUM INTO` snapshot to
+  `donations/_db-backups/` on the shared volume; the `mflux-sync` service already
+  mirrors that directory, so snapshots land in Mediaflux next to the bundles with
+  no extra wiring. Tunable via `BACKUP_ENABLED` / `BACKUP_INTERVAL_HOURS` /
+  `BACKUP_DIR`. Snapshots are never overwritten (mflux-sync is upload-only), so
+  they accumulate as versioned history; prune old local snapshots if the
+  `--csum-check` rehash cost grows. For a sub-24h RPO, add Litestream on top.
 - **Admin IPs are required.** `ADMIN_ALLOWED_IPS` must be set; if blank, all
   admin access is denied by design.

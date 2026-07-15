@@ -32,3 +32,14 @@ def test_settings_rejects_short_salt(monkeypatch):
 
     with pytest.raises(pydantic.ValidationError):
         Settings()
+
+
+def test_settings_rejects_nonpositive_backup_interval(monkeypatch):
+    monkeypatch.setenv("IP_HASH_SALT", "x" * 64)
+    monkeypatch.setenv("ADMIN_PASSWORD", "hunter2hunter")
+    monkeypatch.setenv("BACKUP_INTERVAL_HOURS", "0")
+    import pydantic
+    import pytest
+
+    with pytest.raises(pydantic.ValidationError):
+        Settings()
