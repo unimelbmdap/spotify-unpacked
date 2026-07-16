@@ -20,8 +20,6 @@ const colourMode = useColorMode({
 
 const navLinks = [
   { to: '/', name: 'dashboard', label: 'Upload' },
-  { to: '/interviewer', name: 'interviewer', label: 'Interviewer' },
-  { to: '/myspotify', name: 'myspotify', label: 'Participant' },
 ]
 </script>
 
