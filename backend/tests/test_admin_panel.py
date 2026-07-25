@@ -30,6 +30,11 @@ def test_prepare_code_data_normalises_and_defaults_on_create():
     assert data["created_at"] is not None
 
 
+def test_prepare_code_data_accepts_five_digit_code():
+    data = prepare_code_data({"code": "12345"}, is_created=True)
+    assert data["code"] == "12345"
+
+
 def test_prepare_code_data_rejects_malformed_code():
     with pytest.raises(ValueError):
         prepare_code_data({"code": "no"}, is_created=True)

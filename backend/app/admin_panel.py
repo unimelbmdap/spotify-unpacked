@@ -42,7 +42,7 @@ def prepare_code_data(data: dict[str, Any], *, is_created: bool) -> dict[str, An
     if "code" in data and data["code"] is not None:
         data["code"] = normalise_code(str(data["code"]))
         if not _CODE_RE.fullmatch(data["code"]):
-            raise ValueError("Code must be 6-32 characters of letters, digits, '-' or '_'.")
+            raise ValueError("Code must be 5-32 characters of letters, digits, '-' or '_'.")
     if is_created:
         data.setdefault("uses", 0)
         data["created_at"] = datetime.now(timezone.utc)

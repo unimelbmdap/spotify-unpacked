@@ -74,12 +74,13 @@ async def test_import_codes_skips_invalid_format(session):
         session,
         [
             CodeSeedEntry(code="ok-code-1"),  # valid
-            CodeSeedEntry(code="no"),  # too short (< 6 chars)
+            CodeSeedEntry(code="12345"),  # valid five-digit participant code
+            CodeSeedEntry(code="no"),  # too short (< 5 chars)
             CodeSeedEntry(code="bad code!"),  # invalid chars
         ],
     )
     await session.commit()
-    assert summary["added"] == 1
+    assert summary["added"] == 2
     assert summary["skipped"] == 2
 
 

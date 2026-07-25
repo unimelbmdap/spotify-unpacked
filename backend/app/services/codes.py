@@ -10,7 +10,7 @@ from app.models import CodeStatus, ParticipantCode
 from app.services.code_seed import CodeSeedEntry, parse_seed_csv
 
 CODE_BYTES = 8  # token_urlsafe(8) → 11 chars, ~64 bits entropy
-CODE_REGEX = r"^[A-Za-z0-9_-]{6,32}$"
+CODE_REGEX = r"^[A-Za-z0-9_-]{5,32}$"
 _CODE_RE = re.compile(CODE_REGEX)
 
 
