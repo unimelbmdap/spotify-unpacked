@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 
-import { ApiError, checkCode, getConsent } from '@/lib/api'
+import { ApiError, checkCode } from '@/lib/api'
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -28,14 +28,5 @@ describe('api client', () => {
 
     await expect(checkCode('whatever')).rejects.toMatchObject({ status: 429 })
     await expect(checkCode('whatever')).rejects.toBeInstanceOf(ApiError)
-  })
-
-  it('getConsent returns the version and text', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ version: 'v1.0', text: 'T' }) }),
-    )
-
-    expect(await getConsent()).toEqual({ version: 'v1.0', text: 'T' })
   })
 })

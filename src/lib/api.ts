@@ -6,11 +6,6 @@ export interface CodeCheck {
   valid: boolean
 }
 
-export interface Consent {
-  version: string
-  text: string
-}
-
 export interface DonateResult {
   filename: string
   asset_id: string | null
@@ -51,15 +46,6 @@ export async function checkCode(code: string): Promise<CodeCheck> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ code }),
   })
-  if (!res.ok) {
-    throw new ApiError(res.status, await detailOf(res))
-  }
-  return res.json()
-}
-
-/** Fetch the current consent text and version to display before donating. */
-export async function getConsent(): Promise<Consent> {
-  const res = await fetch(`${BASE_URL}/api/consent`)
   if (!res.ok) {
     throw new ApiError(res.status, await detailOf(res))
   }

@@ -10,7 +10,7 @@ vi.mock('@/lib/api', () => {
       this.status = status
     }
   }
-  return { ApiError, checkCode: vi.fn(), getConsent: vi.fn(), donate: vi.fn() }
+  return { ApiError, checkCode: vi.fn(), donate: vi.fn() }
 })
 
 import DonateView from '../DonateView.vue'
@@ -51,7 +51,6 @@ const streamingFile = () =>
 beforeEach(() => {
   setActivePinia(createPinia())
   vi.clearAllMocks()
-  vi.mocked(api.getConsent).mockResolvedValue({ version: 'v1.0', text: 'CONSENT TEXT' })
 })
 
 describe('DonateView', () => {
@@ -59,7 +58,7 @@ describe('DonateView', () => {
     vi.mocked(api.checkCode).mockResolvedValue({ valid: true })
     const wrapper = mountView()
     await advanceToFormStep(wrapper)
-    expect(wrapper.text()).toContain('CONSENT TEXT')
+    expect(wrapper.text()).toContain('Introduction')
   })
 
   it('cannot submit when the store has no donatable data', async () => {

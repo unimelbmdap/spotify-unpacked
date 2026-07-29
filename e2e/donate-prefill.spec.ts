@@ -21,9 +21,6 @@ test('data loaded on the dashboard is offered for donation without re-selecting 
   await page.route('**/api/codes/validate', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ valid: true }) }),
   )
-  await page.route('**/api/consent', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ version: 'v1.0', text: 'CONSENT' }) }),
-  )
   await page.route('**/api/donate', (route) =>
     route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ donation_id: 7, results: [] }) }),
   )

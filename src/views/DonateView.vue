@@ -2,9 +2,11 @@
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Button } from '@/components/ui/button'
+import ConsentText from '@/components/ConsentText.vue'
 import { useDataStore } from '@/stores/data'
 import { buildDonationFiles } from '@/lib/donationPayload'
-import { ApiError, checkCode, donate, getConsent, type Consent, type DonationResponse } from '@/lib/api'
+import { ApiError, checkCode, donate, type DonationResponse } from '@/lib/api'
+import { CONSENT_VERSION } from '@/data/consent'
 import { WINDOW_LABEL } from '@/lib/dateWindow'
 
 // Client-side mirrors of the backend limits, for early feedback only. The
@@ -26,7 +28,6 @@ const checking = ref(false)
 const codeError = ref('')
 
 // Step 2: consent.
-const consent = ref<Consent | null>(null)
 const consentAccepted = ref(false)
 
 // Submit.
@@ -57,7 +58,6 @@ async function onCheckCode() {
       codeError.value = 'Code not recognised or already used.'
       return
     }
-    consent.value = await getConsent()
     step.value = 'form'
   } catch (err) {
     codeError.value =
@@ -74,7 +74,7 @@ const canSubmit = computed(
 )
 
 async function onSubmit() {
-  if (!canSubmit.value || !consent.value) return
+  if (!canSubmit.value) return
   submitError.value = ''
 
   const files = buildDonationFiles({
@@ -105,7 +105,7 @@ async function onSubmit() {
 
   const form = new FormData()
   form.append('participant_code', code.value.trim())
-  form.append('consent_version', consent.value.version)
+  form.append('consent_version', CONSENT_VERSION)
   form.append('consent_accepted', 'true')
   form.append('app_version', appVersion)
   for (const f of files) form.append('files', f, f.name)
@@ -161,10 +161,8 @@ async function onSubmit() {
 
     <!-- Step 2: consent + data source -->
     <section v-else-if="step === 'form'" class="flex flex-col gap-4">
-      <div
-        class="bg-muted/40 max-h-48 overflow-y-auto rounded-md border p-3 text-sm whitespace-pre-line"
-      >
-        {{ consent?.text }}
+      <div class="bg-muted/40 max-h-48 overflow-y-auto rounded-md border p-3">
+        <ConsentText />
       </div>
 
       <label class="flex items-center gap-2 text-sm">
