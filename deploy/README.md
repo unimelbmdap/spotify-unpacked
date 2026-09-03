@@ -8,8 +8,11 @@ Two containers:
   200 MB upload cap, restricts `/admin` + `/api/admin` to trusted IPs, and
   reverse-proxies `/api` and `/admin` to the backend.
 
-The Mediaflux sync job is intentionally out of scope here (deferred / to be done
-another way). When it lands it reads the shared `donation-data` volume.
+- **mflux-sync** — mirrors `/data/donations` on the shared volume to Mediaflux
+  every `MFLUX_SCAN_INTERVAL` (`mflux-sync/`).
+- **report-gen** — renders a per-donor PDF plus companion JSON for each new
+  donation bundle into `/data/donations/reports/`, which mflux-sync then mirrors
+  (`../reports/`, see its README for retry and regeneration commands).
 
 ## Quick start
 

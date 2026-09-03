@@ -77,6 +77,27 @@ services:
       # Source is the same volume the backend writes to, mounted read-only.
       - donation-data:/data:ro
 
+  report-gen:
+    build:
+      context: ../reports
+    image: donation-report-gen:prod
+    restart: unless-stopped
+    environment:
+      REPORT_DONATIONS_DIR: /data/donations
+      # Poll cadence for new bundles. Output lands in /data/donations/reports,
+      # which mflux-sync already mirrors, so reports reach Mediaflux within
+      # REPORT_SCAN_INTERVAL + MFLUX_SCAN_INTERVAL of a donation.
+      REPORT_SCAN_INTERVAL: "60"
+      REPORT_RENDER_TIMEOUT: "600"
+    volumes:
+      # Read-write: the worker writes only under /data/donations/reports and
+      # stages temp files in /data/.tmp/reports (outside the mirrored tree).
+      - donation-data:/data
+    # Bounds one render's peak memory (rendering is one bundle at a time in
+    # a child process, so an OOM kill becomes a failure marker, not a crash
+    # loop). Measured peak: 1.2 GB for a 300k-play (200 MB JSON) history.
+    mem_limit: 2g
+
 volumes:
   donation-data:
   caddy-data:

@@ -1,0 +1,23 @@
+{
+  "_comment": "Values shared with the frontend. src/lib/__tests__/reportConstants.spec.ts asserts these equal src/lib/dateWindow.ts and src/lib/archetypeConfig.ts; change both together.",
+  "window_start": "2025-01-01",
+  "bar_chart_months_shown": 12,
+  "archetypes": {
+    "receptive": {
+      "algorithmic": {"min": 0.2, "max": 0.7, "weight": 1}
+    },
+    "responsive": {
+      "shuffle": {"min": 0.1, "weight": 0.3333333333333333},
+      "skip": {"min": 0.05, "weight": 0.3333333333333333},
+      "reason": {"max": 0.1, "weight": 0.3333333333333333}
+    },
+    "deliberate": {
+      "shuffle": {"min": 1.0, "max": 0, "weight": 0.25},
+      "skip": {"min": 0.05, "max": 0, "weight": 0.25},
+      "reason": {"min": 0.1, "max": 0, "weight": 0.25},
+      "algorithmic": {"min": 0.7, "max": 0.2, "weight": 0.25}
+    }
+  },
+  "responsive_reason_end_values": ["endplay", "backbtn"],
+  "responsive_reason_start_values": ["popup"]
+}

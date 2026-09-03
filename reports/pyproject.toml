@@ -1,0 +1,49 @@
+[project]
+name = "donation-reports"
+version = "0.1.0"
+description = "Renders per-donor PDF reports from Spotify donation bundles"
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=2.2,<3",
+    "numpy>=2.0",
+    "matplotlib>=3.9",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["donation_reports"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+filterwarnings = [
+    "ignore:Glyph .* missing from font:UserWarning",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N"]
+
+[tool.ruff.lint.per-file-ignores]
+# stats.py and render.py are moved verbatim from explorations/code; keep the
+# diff against the original reviewable rather than reflowing it.
+"donation_reports/stats.py" = ["E501"]
+"donation_reports/render.py" = ["E501", "N806", "B905"]
+"tests/*" = ["E501"]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+include = ["donation_reports", "tests"]
