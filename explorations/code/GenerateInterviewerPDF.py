@@ -1,7 +1,7 @@
 # 2026 Spotify wrapped unwrapped
 ## FFAM-MDAP Collab
 ### Per-donor interviewer dashboard, rendered as a 2-page PDF (dashboard + archetype poster)
-### Code written by Claude, Reviewed and adapted by Amanda Belton
+### Code written by Claude Sonnet-5, Reviewed and adapted by Amanda Belton
 import colorsys
 import dataclasses
 import json
@@ -21,27 +21,41 @@ from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Patch
 
-# Metropolis is used for headings only (via explicit fontfamily="Metropolis"
+# Poppins is used for headings only (via explicit fontfamily="Poppins"
 # on title/suptitle calls below), everything else keeps the fallback stack.
 # It's installed as a user font (~/Library/Fonts) but matplotlib's font cache
 # is built once and doesn't pick up newly-installed fonts on its own, so
-# register its files explicitly rather than relying on the cache. This
-# particular Metropolis distribution also has broken OS/2 usWeightClass
-# metadata (Thin/ExtraLight/Light/Regular all self-report as weight 400), so
-# re-tag each file's weight from its filename or matplotlib's font matcher
-# picks an arbitrary one of those four for "regular"/"semibold" weight text.
-_METROPOLIS_WEIGHTS = {
+# register its files explicitly rather than relying on the cache. Some
+# Poppins distributions also have broken OS/2 usWeightClass metadata
+# (Thin/ExtraLight/Light/Regular all self-report as weight 400), so re-tag
+# each file's weight from its filename or matplotlib's font matcher picks an
+# arbitrary one of those four for "regular"/"semibold" weight text.
+_POPPINS_WEIGHTS = {
     "thin": 100, "extralight": 200, "light": 300, "regular": 400,
     "medium": 500, "semibold": 600, "bold": 700, "extrabold": 800, "black": 900,
 }
 for _font_dir in ("/Library/Fonts", str(Path.home() / "Library/Fonts")):
-    for _font_path in Path(_font_dir).glob("Metropolis-*.otf"):
-        fm.fontManager.addfont(str(_font_path))
+    for _font_glob in ("Poppins-*.ttf", "Literata-*.ttf"):
+        for _font_path in Path(_font_dir).glob(_font_glob):
+            # Google Fonts' Literata download also ships variable-font files
+            # (e.g. "Literata-VariableFont_opsz,wght.ttf") that match this
+            # glob and register under the same "Literata" family name as the
+            # static weights above, with duplicate style entries (Regular,
+            # Bold, etc). Which file wins a given weight lookup then depends
+            # on filesystem directory-listing order, which differs by
+            # machine - and the variable font's default-instance rendering
+            # comes out visibly more condensed/squished than the static
+            # files, since matplotlib doesn't apply named-instance axis
+            # coordinates. Skip them so only the static weights are ever
+            # registered, for consistent rendering across machines.
+            if "VariableFont" in _font_path.name:
+                continue
+            fm.fontManager.addfont(str(_font_path))
 for _i, _entry in enumerate(fm.fontManager.ttflist):
-    if _entry.name == "Metropolis":
-        _stem = Path(_entry.fname).stem.lower().replace("metropolis-", "").replace("italic", "")
-        if _stem in _METROPOLIS_WEIGHTS:
-            fm.fontManager.ttflist[_i] = dataclasses.replace(_entry, weight=_METROPOLIS_WEIGHTS[_stem])
+    if _entry.name == "Poppins":
+        _stem = Path(_entry.fname).stem.lower().replace("poppins-", "").replace("italic", "")
+        if _stem in _POPPINS_WEIGHTS:
+            fm.fontManager.ttflist[_i] = dataclasses.replace(_entry, weight=_POPPINS_WEIGHTS[_stem])
 
 # Track/artist/playlist names can contain CJK or other non-Latin text; DejaVu
 # Sans (matplotlib's default) can't render it, so prefer a broader-coverage
@@ -67,9 +81,9 @@ plt.rcParams["axes.unicode_minus"] = False
 logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
 
 BASE_DIR = Path(__file__).parent
-DATA_DIR = BASE_DIR.parent / "AggregatedVisualisations" / "Data"
+DATA_DIR = BASE_DIR.parent / "data"
 OUTPUT_DIR = BASE_DIR / "Output"
-ASSETS_DIR = BASE_DIR.parent / "public"
+ASSETS_DIR = BASE_DIR.parent / "images"
 
 INK_PRIMARY = "#0b0b0b"
 INK_SECONDARY = "#52514e"
@@ -547,7 +561,12 @@ class DonorStats:
             month_key = f"{year:04d}-{month:02d}"
             month_label = datetime(year, month, 1).strftime("%b %Y")
             month_df = recent_df[recent_df["month_key"] == month_key] if not recent_df.empty else recent_df
-            if month_df.empty:
+            # A month can have streaming rows that all round down to 0
+            # minutes (e.g. a single very-quick listen), which should read as
+            # "no listening data" rather than a "0 min" total with a peak day
+            # of 0 minutes.
+            total_minutes = int(month_df["minutes_rounded"].sum()) if not month_df.empty else 0
+            if total_minutes <= 0:
                 self.monthly_stats.append({"month_label": month_label})
                 continue
 
@@ -592,7 +611,7 @@ class DonorStats:
 
             self.monthly_stats.append({
                 "month_label": month_label,
-                "total_minutes": int(month_df["minutes_rounded"].sum()),
+                "total_minutes": total_minutes,
                 "peak_day": peak_day,
                 "top_song": top_song,
                 "top_artist": top_artist,
@@ -683,7 +702,7 @@ def draw_footer(ax, participant_code):
 def draw_section_heading(ax, text):
     ax.axis("off")
     ax.text(0.5, 0.5, text, ha="center", va="center", color=INK_PRIMARY, fontsize=13,
-            fontweight="bold", fontfamily="Metropolis", transform=ax.transAxes)
+            fontweight="bold", fontfamily="Poppins", transform=ax.transAxes)
 
 
 def wrap(text, width, max_lines):
@@ -721,7 +740,7 @@ def draw_month_stat_card(ax, stats):
     ax.axis("off")
     ax.add_patch(plt.Rectangle((0, 0), 1, 1, transform=ax.transAxes, facecolor=SURFACE, edgecolor=GRIDLINE, linewidth=1))
     ax.text(0.5, 0.94, stats["month_label"], ha="center", va="top", fontsize=10.5, fontweight="bold",
-            color=INK_PRIMARY, fontfamily="Metropolis", transform=ax.transAxes)
+            color=INK_PRIMARY, fontfamily="Poppins", transform=ax.transAxes)
 
     if "total_minutes" not in stats:
         ax.text(0.5, 0.5, "No listening data\nthis month", ha="center", va="center", fontsize=8.5,
@@ -860,7 +879,7 @@ def heatmap_chart(fig, cell_ax, cbar_ax, matrix, row_labels, col_labels, color_h
     cell_ax.set_yticks(np.arange(-0.5, len(row_labels), 1), minor=True)
     cell_ax.grid(which="minor", color=SURFACE, linewidth=2)
     cell_ax.tick_params(which="minor", length=0)
-    cell_ax.set_title(title, color=INK_PRIMARY, fontsize=10, pad=8, fontfamily="Metropolis")
+    cell_ax.set_title(title, color=INK_PRIMARY, fontsize=10, pad=8, fontfamily="Poppins")
 
     cbar = fig.colorbar(im, cax=cbar_ax)
     cbar.set_ticks([0, vmax])
@@ -900,6 +919,8 @@ MONTHLY_GRID_COLUMNS = 4
 def _recent_month_keys(date_keys, months_shown):
     """Trailing (year, month) tuples ending at the last day in date_keys,
     clipped to not run earlier than the first day actually in the data."""
+    if not date_keys:
+        return []
     last = datetime.strptime(date_keys[-1], "%Y-%m-%d")
     first = datetime.strptime(date_keys[0], "%Y-%m-%d")
     months = []
@@ -979,7 +1000,7 @@ def monthly_listening_bar_chart(ax, date_keys, by_date_library, by_date_other, h
 
     ax.set_xticks(x)
     ax.set_xticklabels(labels, color=INK_SECONDARY, fontsize=7.5, rotation=45, ha="right")
-    ax.set_title("Your monthly listening patterns", color=INK_PRIMARY, fontsize=9, pad=12, fontfamily="Metropolis")
+    ax.set_title("Your monthly listening patterns", color=INK_PRIMARY, fontsize=9, pad=12, fontfamily="Poppins")
     ax.set_ylabel("Monthly listening time in hours", color=INK_SECONDARY, fontsize=8)
     ax.tick_params(axis="both", length=0, labelsize=7.5, labelcolor=INK_SECONDARY)
     ax.grid(axis="y", color=GRIDLINE, linewidth=0.8)
@@ -1064,7 +1085,7 @@ def library_playlist_other_bar_chart(ax, library_hours, playlist_hours, other_ho
         spine.set_visible(False)
     month_word = "month" if months_shown == 1 else "months"
     ax.set_title(f"Most recent {months_shown} {month_word} breakdown of listening time by source",
-                 color=INK_PRIMARY, fontsize=9, pad=12, fontfamily="Metropolis")
+                 color=INK_PRIMARY, fontsize=9, pad=12, fontfamily="Poppins")
 
 
 # Fraction of the card's own height it's shifted up by within its GridSpec
@@ -1105,11 +1126,11 @@ def draw_archetype_card(fig, card_spec, key, donor):
     img_ax.set_position([img_pos.x0, img_pos.y0 + raise_by, img_pos.width, img_pos.height])
     text_ax.set_position([text_pos.x0, text_pos.y0 + raise_by, text_pos.width, text_pos.height])
 
-    # No explicit fontfamily here (unlike other Metropolis headings): Metropolis
+    # No explicit fontfamily here (unlike other Poppins headings): Poppins
     # has no glyph for the star, so this relies on the rcParams font.family
     # fallback chain to pick it up from DejaVu Sans per-glyph.
     label_text = cfg["short_label"].upper() + ("  ★" if is_strongest else "")
-    text_ax.text(0.5, 1, label_text, ha="center", va="top", fontsize=9.5, fontweight="bold",
+    text_ax.text(0.5, 1, label_text, ha="center", va="top", fontsize=10, fontweight="bold",
                  color=INK_PRIMARY, transform=text_ax.transAxes)
     # Short, second-person summary sits as its own paragraph above the
     # longer analytical description. Bold INK_PRIMARY (rather than the
@@ -1117,13 +1138,13 @@ def draw_archetype_card(fig, card_spec, key, donor):
     # particular is too low-contrast against the page for body-sized text.
     # Pulled up close under the heading now that the score percentage
     # above it has been removed.
-    text_ax.text(0, 0.85, wrap(cfg["short_text"], 40, 5), ha="left", va="top",
-                 fontsize=8, color=INK_PRIMARY, fontweight="bold", transform=text_ax.transAxes, linespacing=1)
+    text_ax.text(0, 0.85, wrap(cfg["short_text"], 35, 6), ha="left", va="top",
+                 fontsize=9, color=INK_PRIMARY, fontweight="bold", transform=text_ax.transAxes, linespacing=1.2)
     # width/max_lines are tuned against this card's actual text_ax size (see
     # draw_archetype_card geometry) so a 9-line description just fits above
     # the card's bottom edge; longer descriptions truncate with an ellipsis.
-    text_ax.text(0, 0.4, wrap(donor.archetype_descriptions[key], 40, 14), ha="left", va="top",
-                 fontsize=8, color=INK_SECONDARY, transform=text_ax.transAxes, linespacing=1)
+    text_ax.text(0, 0.375, wrap(donor.archetype_descriptions[key], 40, 14), ha="left", va="top",
+                 fontsize=9, color=INK_SECONDARY, transform=text_ax.transAxes, linespacing=1.2)
 
 
 # ---------------------------------------------------------------------------
@@ -1222,7 +1243,7 @@ def build_dashboard_page(pdf: PdfPages, donor: DonorStats):
     draw_footer(fig.add_subplot(gs[6]), donor.participant_code)
 
     fig.suptitle(f"YOUR SPOTIFY WRAPPED UNPACKED", color=INK_PRIMARY, fontsize=20,
-                 fontweight="bold", fontfamily="Metropolis", y=.9)
+                 fontweight="bold", fontfamily="Poppins", y=.9)
     pdf.savefig(fig, facecolor=SURFACE)
     plt.close(fig)
 
@@ -1258,7 +1279,7 @@ def build_monthly_grid_page(pdf: PdfPages, donor: DonorStats):
     draw_footer(fig.add_subplot(gs[3]), donor.participant_code)
 
     fig.suptitle("YOUR MONTH-BY-MONTH HIGHLIGHTS", color=INK_PRIMARY, fontsize=20,
-                 fontweight="bold", fontfamily="Metropolis", y=.9)
+                 fontweight="bold", fontfamily="Poppins", y=.9)
     pdf.savefig(fig, facecolor=SURFACE)
     plt.close(fig)
 
@@ -1273,8 +1294,8 @@ RADAR_INTRO_TEXT = (
 
 def draw_radar_intro_text(ax, text):
     ax.axis("off")
-    ax.text(0, .9, wrap(text, 45, 60), ha="left", va="top", fontsize=8,
-            color=INK_SECONDARY, transform=ax.transAxes, linespacing=1)
+    ax.text(0, .9, wrap(text, 45, 60), ha="left", va="top", fontsize=10,
+            color=INK_SECONDARY, transform=ax.transAxes, linespacing=1.2)
 
 
 def build_poster_page(pdf: PdfPages, donor: DonorStats):
@@ -1301,7 +1322,7 @@ def build_poster_page(pdf: PdfPages, donor: DonorStats):
     draw_footer(fig.add_subplot(gs[3]), donor.participant_code)
 
     fig.suptitle("UNPACKING YOUR PLATFORM INTERACTION DATA", color=INK_PRIMARY,
-                 fontsize=20, fontweight="bold", fontfamily="Metropolis", y=0.9)
+                 fontsize=20, fontweight="bold", fontfamily="Poppins", y=0.9)
     pdf.savefig(fig, facecolor=SURFACE)
     plt.close(fig)
 
